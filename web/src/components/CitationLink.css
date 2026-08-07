@@ -1,0 +1,12 @@
+.citation {
+  color: var(--text-2);
+  font-size: var(--step--1);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.citation:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}

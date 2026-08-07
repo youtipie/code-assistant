@@ -1,0 +1,135 @@
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar__head {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+}
+
+.sidebar__brand {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--step-0);
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.sidebar__new {
+  margin: 0 var(--space-3) var(--space-3);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--step--1);
+  text-align: left;
+}
+
+.sidebar__new:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-2);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sidebar__row {
+  position: relative;
+}
+
+.sidebar__item {
+  display: block;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text-2);
+  border-left: 2px solid transparent;
+}
+
+.sidebar__item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sidebar__item--active {
+  background: var(--accent-wash);
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+
+.sidebar__title {
+  display: block;
+  padding-right: 1.5rem;
+  font-size: var(--step--1);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
+.sidebar__delete {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  border: 0;
+  background: var(--surface-3);
+  color: var(--text-3);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+}
+
+.sidebar__row:hover .sidebar__delete,
+.sidebar__delete:focus-visible {
+  opacity: 1;
+}
+
+.sidebar__delete:hover {
+  color: var(--danger);
+  background: var(--danger-wash);
+}
+
+.sidebar__empty {
+  padding: var(--space-4);
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--text-3);
+}
+
+.sidebar__scope {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
+  }
+}

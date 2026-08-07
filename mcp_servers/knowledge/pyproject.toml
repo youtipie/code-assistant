@@ -1,0 +1,16 @@
+[project]
+name = "knowledge-mcp"
+version = "0.1.0"
+description = "MCP server exposing codebase and documentation retrieval"
+requires-python = ">=3.12"
+dependencies = [
+    "core",
+    "mcp>=1.2.0",
+    "uvicorn[standard]>=0.34.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+core = { workspace = true }

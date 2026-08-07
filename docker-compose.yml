@@ -1,0 +1,107 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ai
+      POSTGRES_PASSWORD: ai
+      POSTGRES_DB: ai
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai -d ai"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ai:ai@postgres:5432/ai
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+
+  knowledge:
+    build:
+      context: .
+      dockerfile: mcp_servers/knowledge/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ai:ai@postgres:5432/ai
+      EMBEDDING_CACHE: /models
+      MCP_ALLOWED_HOSTS: knowledge:8080,localhost:8080,127.0.0.1:8080
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/models
+      - ./mcp_servers/knowledge/app:/srv/mcp_servers/knowledge/app
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ai:ai@postgres:5432/ai
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1}
+      OPENAI_USE_RESPONSES_API: ${OPENAI_USE_RESPONSES_API:-true}
+      OPENAI_REASONING_EFFORT: ${OPENAI_REASONING_EFFORT:-}
+      EMBEDDING_CACHE: /models
+      MCP_CONFIG: /srv/agent/mcp_servers.json
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      CORPUS_REPOS: ${CORPUS_REPOS:-saleor/saleor=saleor/,saleor/saleor-docs=docs/}
+      MAX_STEPS: ${MAX_STEPS:-12}
+      TURN_TIMEOUT_SECONDS: ${TURN_TIMEOUT_SECONDS:-120}
+      HEARTBEAT_SECONDS: ${HEARTBEAT_SECONDS:-20}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      knowledge:
+        condition: service_started
+    volumes:
+      - ./gateway/app:/srv/gateway/app
+      - ./agent/src/agent:/srv/agent/src/agent
+      - ./agent/mcp_servers.json:/srv/agent/mcp_servers.json:ro
+      - models:/models
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/srv/gateway/app", "--reload-dir", "/srv/agent/src/agent"]
+
+  ingest:
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ai:ai@postgres:5432/ai
+      EMBEDDING_CACHE: /models
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/models
+      - ./evals:/srv/evals:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "3000:80"
+    depends_on:
+      gateway:
+        condition: service_started
+
+volumes:
+  pgdata:
+  models:

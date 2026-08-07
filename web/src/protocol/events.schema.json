@@ -1,0 +1,404 @@
+{
+  "anyOf": [
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "session.created",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "seq",
+        "session_id",
+        "type"
+      ]
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "turn.start",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "text.delta",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id",
+        "text"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "turn.end",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "completed",
+            "cancelled",
+            "error"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id",
+        "reason",
+        "message"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "retrieval.hits",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "hits": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "citation": {
+                "type": "string"
+              },
+              "start_line": {
+                "type": "integer"
+              },
+              "source_type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "citation",
+              "start_line",
+              "source_type"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id",
+        "hits"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "tool.call",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "call_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id",
+        "call_id",
+        "name",
+        "arguments"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "tool.result",
+          "type": "string"
+        },
+        "turn_id": {
+          "type": "string"
+        },
+        "call_id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "error"
+          ],
+          "type": "string"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "turn_id",
+        "call_id",
+        "status",
+        "preview"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "error",
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "turn_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "seq",
+        "session_id",
+        "type",
+        "code",
+        "message",
+        "turn_id"
+      ],
+      "type": "object"
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "heartbeat",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "seq",
+        "session_id",
+        "type"
+      ]
+    },
+    {
+      "properties": {
+        "seq": {
+          "type": "integer"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "const": "pong",
+          "type": "string"
+        }
+      },
+      "type": "object",
+      "required": [
+        "seq",
+        "session_id",
+        "type"
+      ]
+    }
+  ]
+}

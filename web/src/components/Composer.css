@@ -1,0 +1,58 @@
+.composer {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  box-shadow: var(--shadow);
+}
+
+.composer:focus-within {
+  border-color: var(--accent);
+}
+
+.composer__field:focus,
+.composer__field:focus-visible {
+  outline: none;
+}
+
+.composer__field {
+  flex: 1;
+  border: 0;
+  outline: none;
+  resize: none;
+  font: inherit;
+  color: inherit;
+  background: none;
+  line-height: 1.55;
+  max-height: 220px;
+}
+
+.composer__field::placeholder {
+  color: var(--text-3);
+}
+
+.composer__action {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--base);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--step--1);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.composer__action:disabled {
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+.composer__action--stop {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1px solid var(--line);
+}

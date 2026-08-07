@@ -1,0 +1,11 @@
+.app {
+  display: flex;
+  height: 100%;
+  background: var(--base);
+}
+
+.app__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}

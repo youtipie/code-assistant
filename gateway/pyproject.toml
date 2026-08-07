@@ -1,0 +1,19 @@
+[project]
+name = "gateway"
+version = "0.1.0"
+description = "FastAPI WebSocket AI gateway"
+requires-python = ">=3.12"
+dependencies = [
+    "core",
+    "agent",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+core = { workspace = true }
+agent = { workspace = true }

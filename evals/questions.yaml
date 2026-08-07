@@ -1,0 +1,117 @@
+# Retrieval eval set.
+#
+# Every expected path here was seen in real retrieval output while building
+# the app, so the answers are grounded in this corpus rather than invented. A
+# question passes when any expected path appears in the top-k hits.
+#
+# `type` filters the search the same way the agent's tools do: doc questions
+# search documentation, code questions search code, and `any` searches both.
+
+# Known miss. This file is 58 lines and mostly a mermaid diagram -- there are
+# roughly two sentences of prose to embed, and it contains the word "deploy"
+# zero times. The competing hits are real architecture docs. Fixing this needs
+# diagram descriptions generated at index time, which costs an LLM call per
+# diagram. Left in as a standing reminder of what the index cannot see.
+- q: What is the deployment architecture?
+  type: doc
+  expect: [docs/setup/architecture.mdx]
+
+- q: How do we handle rate limiting on the GraphQL API?
+  type: doc
+  expect: [docs/api-usage/usage-limits.mdx]
+
+- q: How does a payment app process a payment?
+  type: doc
+  expect: [docs/developer/payments/payment-apps.mdx]
+
+- q: How are refunds granted and processed?
+  type: doc
+  expect: [docs/developer/payments/refunds.mdx]
+
+- q: What is the checkout lifecycle?
+  type: doc
+  expect: [docs/developer/checkout/lifecycle.mdx]
+
+- q: Which task queue and broker does Saleor use?
+  type: doc
+  expect: [docs/developer/running-saleor/task-queue.mdx]
+
+- q: How does the Stripe app handle refund webhooks?
+  type: doc
+  expect:
+    - docs/developer/app-store/apps/stripe/webhooks.mdx
+    - docs/developer/app-store/apps/stripe/architecture.mdx
+
+- q: How does Saleor scale horizontally?
+  type: doc
+  expect: [docs/overview/why-saleor/scalable.mdx]
+
+- q: How do I create a checkout with the API?
+  type: doc
+  expect: [docs/developer/checkout/api-guide.mdx]
+
+- q: How do I build a payment app?
+  type: doc
+  expect: [docs/developer/extending/apps/building-payment-app.mdx]
+
+- q: What is the difference between authorization and charge flow strategy?
+  type: doc
+  expect: [docs/developer/payments/transaction-flow-strategy.mdx]
+
+- q: How does a checkout become an order?
+  type: code
+  expect: [saleor/checkout/complete_checkout.py]
+
+- q: What fields does the Checkout model have?
+  type: code
+  expect: [saleor/checkout/models.py]
+
+- q: What is the difference between Payment and TransactionItem?
+  type: code
+  expect: [saleor/payment/models.py]
+
+- q: Where is a refund fulfillment created?
+  type: code
+  expect: [saleor/order/actions.py]
+
+- q: Which service is responsible for invoice generation?
+  type: code
+  expect:
+    - saleor/plugins/webhook/plugin.py
+    - saleor/webhook/payloads.py
+
+- q: What happens when a webhook delivery fails?
+  type: code
+  expect: [saleor/webhook/transport/utils.py]
+
+- q: How is the base total of a checkout calculated?
+  type: code
+  expect: [saleor/checkout/base_calculations.py]
+
+- q: Where are Stripe webhook events handled in the code?
+  type: code
+  expect: [saleor/payment/gateways/stripe/webhooks.py]
+
+- q: Where are order events recorded?
+  type: code
+  expect: [saleor/order/events.py]
+
+- q: Which GraphQL mutation refunds fulfilled products?
+  type: code
+  expect: [saleor/graphql/order/mutations/fulfillment_refund_products.py]
+
+- q: How is a transaction initialized through GraphQL?
+  type: code
+  expect: [saleor/graphql/payment/mutations/transaction/transaction_initialize.py]
+
+- q: What is TokenizedPaymentFlow?
+  type: code
+  expect: [saleor/payment/__init__.py]
+
+- q: What dataclasses describe payment method tokenization requests?
+  type: code
+  expect: [saleor/payment/interface.py]
+
+- q: How is invoice generation requested from an external app?
+  type: code
+  expect: [saleor/plugins/webhook/plugin.py]
