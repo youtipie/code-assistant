@@ -58,10 +58,16 @@ services:
       MCP_CONFIG: /srv/agent/mcp_servers.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       CORPUS_REPOS: ${CORPUS_REPOS:-saleor/saleor=saleor/,saleor/saleor-docs=docs/}
+      CORPUS_NAME: ${CORPUS_NAME:-Saleor}
+      SCOPE_GUARD_ENABLED: ${SCOPE_GUARD_ENABLED:-true}
+      SCOPE_MODEL: ${SCOPE_MODEL:-gpt-4.1-mini}
       MAX_STEPS: ${MAX_STEPS:-12}
       TURN_TIMEOUT_SECONDS: ${TURN_TIMEOUT_SECONDS:-120}
       HEARTBEAT_SECONDS: ${HEARTBEAT_SECONDS:-20}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      PHOENIX_COLLECTOR_ENDPOINT: ${PHOENIX_COLLECTOR_ENDPOINT:-http://phoenix:6006}
+      MODEL_PRICES: ${MODEL_PRICES:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "8000:8000"
@@ -70,12 +76,31 @@ services:
         condition: service_completed_successfully
       knowledge:
         condition: service_started
+      # service_started, not healthy: tracing must never gate answers
+      phoenix:
+        condition: service_started
     volumes:
       - ./gateway/app:/srv/gateway/app
       - ./agent/src/agent:/srv/agent/src/agent
       - ./agent/mcp_servers.json:/srv/agent/mcp_servers.json:ro
       - models:/models
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/srv/gateway/app", "--reload-dir", "/srv/agent/src/agent"]
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    environment:
+      # its own schema in the database already running, so alembic never
+      # reflects Phoenix's tables
+      PHOENIX_SQL_DATABASE_URL: postgresql://ai:ai@postgres:5432/ai
+      PHOENIX_SQL_DATABASE_SCHEMA: phoenix
+      PHOENIX_WORKING_DIR: /phoenix
+    ports:
+      - "6006:6006"
+    volumes:
+      - phoenix:/phoenix
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   ingest:
     profiles: ["tools"]
@@ -105,3 +130,4 @@ services:
 volumes:
   pgdata:
   models:
+  phoenix:

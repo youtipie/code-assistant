@@ -14,5 +14,10 @@ class Settings(BaseAppSettings):
         alias="CORS_ORIGINS",
     )
 
+    tracing_enabled: bool = True
+    tracing_project: str = "ai-assistant"
+    # Phoenix serves its UI and its OTLP/HTTP collector on the same port
+    phoenix_collector_endpoint: str = "http://phoenix:6006"
+
 
 settings = Settings()

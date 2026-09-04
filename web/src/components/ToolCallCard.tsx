@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import type { ToolInvocation } from "@/state/chatStore";
 import { CitationLink } from "./CitationLink";
 import type { Snapshots } from "@/lib/citations";
+import { duration } from "@/lib/format";
 import "./ToolCallCard.css";
 
 interface Props {
@@ -25,19 +26,17 @@ function summarise(tool: ToolInvocation): string {
   return parts.join(" ");
 }
 
-function duration(tool: ToolInvocation): string | null {
-  if (tool.endedAt === undefined) return null;
-  const ms = tool.endedAt - tool.startedAt;
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+function elapsedOf(tool: ToolInvocation): string | null {
+  if (tool.durationMs === undefined) return null;
+  return duration(tool.durationMs);
 }
 
-// memo, because a streaming answer re-renders its turn once per token delta
-// (thousands per turn) and a finished tool card never changes. chatStore's
+// memo: a streaming answer re-renders its turn thousands of times, and
 // updateTurn rebuilds only the tool whose event arrived, so every other card
-// keeps its object identity and this bails out.
+// keeps its identity and bails out here.
 export const ToolCallCard = memo(function ToolCallCard({ tool, step, snapshots }: Props) {
   const [open, setOpen] = useState(false);
-  const elapsed = duration(tool);
+  const elapsed = elapsedOf(tool);
   const detail = summarise(tool);
 
   return (

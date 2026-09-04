@@ -19,6 +19,7 @@ from agent import build_graph, close_graph, close_mcp, connect_mcp, openai_model
 
 from .api import router as api_router
 from .config import settings
+from .tracing import setup_tracing, shutdown_tracing
 from .ws import chat as chat_loop
 from .ws import persists
 
@@ -27,13 +28,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
-# langchain-mcp-adapters binds tools to a *connection*, not a session, so every
-# tool call opens its own MCP session and deletes it on the way out. That ends
-# the session's SSE GET stream, which logs "GET stream disconnected,
-# reconnecting in 1000ms..." at INFO -- once per tool call, ~90 times in a
-# thorough turn. It reads like the client websocket dropping and is nothing of
-# the sort: the reconnect never happens, because the session is gone by design.
-# Warnings still get through, so a genuine MCP transport failure is still heard.
+# langchain-mcp-adapters binds tools to a *connection*, so every tool call
+# opens and closes its own MCP session, and each close logs "GET stream
+# disconnected, reconnecting..." at INFO -- ~90 times in a thorough turn, and
+# nothing like the client disconnect it reads as. Warnings still get through.
 logging.getLogger("mcp.client.streamable_http").setLevel(logging.WARNING)
 
 log = logging.getLogger("gateway")
@@ -41,6 +39,9 @@ log = logging.getLogger("gateway")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # before build_graph(): instrumenting LangChain patches machinery the
+    # graph is about to construct
+    setup_tracing()
     await open_db()
     await connect_mcp()
     await build_graph()
@@ -49,6 +50,8 @@ async def lifespan(app: FastAPI):
     await close_mcp()
     await persists.drain()
     await close_db()
+    # last: the span batch has to flush before the process goes away
+    shutdown_tracing()
 
 
 app = FastAPI(title="AI Engineering Assistant Gateway", lifespan=lifespan)

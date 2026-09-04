@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Literal
@@ -24,20 +25,27 @@ class TurnInterceptor:
         server = request.server_name
         name = request.name
         state = current_turn_state()
-        # no turn state (e.g. outside a real turn) means there is nothing to
-        # de-dupe against and nothing to record into -- an empty, throwaway
-        # set reproduces the old "no emitter -> never refuse" behavior
+        # outside a real turn there is nothing to de-dupe against, and a
+        # throwaway set means the rules never refuse on repetition alone
         seen = state.seen if state is not None else set()
 
         decision = decide(server, name, dict(request.args), seen, settings)
         if decision.record is not None and state is not None:
             state.seen.add(decision.record)
 
+        started = time.perf_counter()
+
         if decision.refusal is not None:
             call_id = _announce(state, name, decision.args)
             # "ok", not "error": a scope refusal is a policy outcome the model
             # is expected to read and work around, not a failed call
-            _finish(state, call_id, "ok", decision.refusal_preview or "refused")
+            _finish(
+                state,
+                call_id,
+                "ok",
+                decision.refusal_preview or "refused",
+                _since(started),
+            )
             return _as_result(decision.refusal)
 
         call_id = _announce(state, name, decision.args)
@@ -47,16 +55,26 @@ class TurnInterceptor:
             # report the failure to the client, then let it propagate:
             # handle_tool_errors on the client turns it into text for the
             # model, so the turn continues exactly as it did before
-            _finish(state, call_id, "error", f"{type(exc).__name__}: {exc}")
+            _finish(
+                state,
+                call_id,
+                "error",
+                f"{type(exc).__name__}: {exc}",
+                _since(started),
+            )
             raise
 
+        # stopped before rendering: the card reports what the tool took
+        elapsed = _since(started)
         raw = _text_of(result)
         rendered, hits = rendering.render(server, name, raw)
         if hits is not None and state is not None:
-            state.buffer.append(RetrievalHits(turn_id=state.turn_id, hits=hits))
+            state.buffer.append(
+                RetrievalHits(turn_id=state.turn_id, call_id=call_id, hits=hits)
+            )
             state.updated.set()
         failed = _failed(result)
-        _finish(state, call_id, "error" if failed else "ok", rendered)
+        _finish(state, call_id, "error" if failed else "ok", rendered, elapsed)
         # carry the flag through: telling the client a call failed while
         # telling the model it succeeded would be worse than either alone
         return _as_result(rendered, is_error=failed)
@@ -66,9 +84,8 @@ def _failed(result: MCPToolCallResult) -> bool:
     """Whether the server reported the call as failed.
 
     MCPToolCallResult is a union: an MCP CallToolResult carries `isError`, a
-    LangChain ToolMessage carries `status`. Read both defensively -- a shape
-    we do not recognise is treated as success, which is what this code did
-    unconditionally before.
+    LangChain ToolMessage carries `status`. An unrecognised shape counts as
+    success -- the model reads the text either way.
     """
     if getattr(result, "isError", False):
         return True
@@ -78,6 +95,7 @@ def _failed(result: MCPToolCallResult) -> bool:
 def _announce(state: TurnState | None, name: str, arguments: dict) -> str:
     call_id = str(uuid.uuid4())[:8]
     if state is not None:
+        state.calls += 1
         state.buffer.append(
             ToolCall(
                 turn_id=state.turn_id, call_id=call_id, name=name, arguments=arguments
@@ -92,6 +110,7 @@ def _finish(
     call_id: str,
     status: Literal["ok", "error"],
     preview: str,
+    duration_ms: int,
 ) -> None:
     if state is not None:
         state.buffer.append(
@@ -100,9 +119,14 @@ def _finish(
                 call_id=call_id,
                 status=status,
                 preview=preview[:200],
+                duration_ms=duration_ms,
             )
         )
         state.updated.set()
+
+
+def _since(started: float) -> int:
+    return round((time.perf_counter() - started) * 1000)
 
 
 def _as_result(text: str, is_error: bool = False) -> CallToolResult:

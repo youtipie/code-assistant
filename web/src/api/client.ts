@@ -16,12 +16,50 @@ export const sessionSummary: z.ZodType<SessionSummary> = z.object({
   turn_count: z.number().int(),
 });
 
+export type MessageStats = components["schemas"]["TurnStats"];
+
+export const turnStats: z.ZodType<MessageStats> = z.object({
+  model: z.string(),
+  prompt_tokens: z.number().int(),
+  completion_tokens: z.number().int(),
+  cached_tokens: z.number().int(),
+  cache_write_tokens: z.number().int(),
+  cost_usd: z.number().nullable(),
+  ttft_ms: z.number().int().nullable(),
+  duration_ms: z.number().int(),
+  steps: z.number().int(),
+  tool_calls: z.number().int(),
+});
+
+export type MessageToolCall = components["schemas"]["ToolCallOut"];
+
+export const toolCall: z.ZodType<MessageToolCall> = z.object({
+  call_id: z.string(),
+  name: z.string(),
+  arguments: z.record(z.unknown()),
+  status: z.string(),
+  preview: z.string().nullable(),
+  hits: z.array(
+    z.object({
+      path: z.string(),
+      citation: z.string(),
+      start_line: z.number().int(),
+      source_type: z.string(),
+    }),
+  ),
+  duration_ms: z.number().int().nullable(),
+});
+
 export const message: z.ZodType<Message> = z.object({
   id: z.number().int(),
   role: z.string(),
   text: z.string(),
   turn_id: z.string().nullable(),
   created_at: z.string(),
+  // z.object strips keys the schema does not name: omitting these drops the
+  // footer and the cards from every reloaded turn
+  stats: turnStats.nullable(),
+  tools: z.array(toolCall),
 });
 
 export const serverStatus: z.ZodType<ServerStatus> = z.object({

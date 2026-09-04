@@ -63,9 +63,8 @@ def main() -> None:
         await open_db()
         try:
             # DNS-rebinding protection trusts only localhost by default, so
-            # inside compose every request arrives with Host: knowledge:8080
-            # and is rejected with 421. Trust the service names we actually
-            # serve; MCP_ALLOWED_HOSTS widens it for other deployments.
+            # inside compose every request arrives as Host: knowledge:8080 and
+            # is rejected with 421. MCP_ALLOWED_HOSTS widens it elsewhere.
             allowed = server_settings.allowed_hosts
             server.settings.transport_security = TransportSecuritySettings(
                 allowed_hosts=allowed,

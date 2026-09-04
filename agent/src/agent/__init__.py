@@ -27,9 +27,7 @@ class AgentStatus:
 
 def status() -> AgentStatus:
     """Plain-data snapshot of MCP/model state for gateway's /status endpoint,
-    so callers don't need to reach into agent.mcp_client's manager singleton
-    or agent.config's settings directly.
-    """
+    so no caller has to reach into the manager singleton or the settings."""
     tools = _manager.tools()
     per_server: dict[str, int] = {}
     for tool in tools:

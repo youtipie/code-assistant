@@ -81,11 +81,9 @@ async def chat(ws: WebSocket, client: str | None = None) -> None:
                     )
                     continue
 
-                # A message without a session id starts a new conversation.
                 # One socket can carry many conversations, so the message
-                # decides which one, never the connection -- a connection that
-                # remembered the last session would silently append a client's
-                # second conversation to its first.
+                # decides which one, never the connection: a remembered session
+                # would append a client's second conversation to its first.
                 if event.session_id:
                     session_id = event.session_id
                     await store.ensure_session(session_id, owner=owner)

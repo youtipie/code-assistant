@@ -14,14 +14,13 @@ class TurnState:
     turn_id: str
     seen: set[str] = field(default_factory=set)
     buffer: list[BufferedEvent] = field(default_factory=list)
-    # Set by interceptor.py at every state.buffer.append(...) site (no
-    # await between the append and the set(), so this always happens
-    # before the tool call that produced the event can possibly resolve --
-    # see agent.py's run_turn for the consumer). Cleared only by agent.py's
-    # _drain(), the sole reader of `buffer`, in the same synchronous
-    # statement that snapshots and empties the list -- so a set() can never
-    # be cleared out from under events that are still sitting in the
-    # buffer, regardless of where run_turn itself happens to suspend.
+    # counted where ToolCall events are minted: they leave the buffer through
+    # six drain sites, and a tally over those would eventually miss one
+    calls: int = 0
+    # Set by interceptor.py at every buffer.append() site, with no await in
+    # between, and cleared only by drain() in the same synchronous statement
+    # that empties the list -- so a set() can never be lost under events still
+    # sitting in the buffer, wherever the consumer happens to suspend.
     updated: asyncio.Event = field(default_factory=asyncio.Event)
 
 

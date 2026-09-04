@@ -41,10 +41,9 @@ def _normalise(model: dict[str, Any]) -> None:
 
     A Python-side default does not make a field optional on the wire:
     `model_dump_json` emits every field it has not excluded, so a frame
-    missing one is drift, not a shorthand. Saying so here is what keeps
-    `type` a plain literal in the generated zod -- which `parseServerEvent`
-    reads to tell an unknown event from an invalid one -- and what keeps
-    `hits` and `arguments` non-optional for the store that consumes them.
+    missing one is drift, not a shorthand. This is also what keeps `type` a
+    plain literal in the generated zod, which `parseServerEvent` reads to tell
+    an unknown event from an invalid one.
     """
     model.pop("title", None)
     model.pop("description", None)
@@ -52,7 +51,23 @@ def _normalise(model: dict[str, Any]) -> None:
     for prop in properties.values():
         prop.pop("title", None)
         prop.pop("default", None)
+        _normalise_nested(prop)
     model["required"] = list(properties)
+
+
+def _normalise_nested(prop: dict[str, Any]) -> None:
+    """Apply the same rules to object schemas nested inside a property.
+
+    A list of models (`hits`) puts the model under `items`; a nullable model
+    (`TurnEnd.stats`) puts it in an `anyOf` branch. Skip either and the
+    "a missing field is drift" rule holds for the frame but not its payload.
+    """
+    items = prop.get("items")
+    if isinstance(items, dict) and "properties" in items:
+        _normalise(items)
+    for branch in prop.get("anyOf", []):
+        if isinstance(branch, dict) and "properties" in branch:
+            _normalise(branch)
 
 
 def schema() -> dict[str, Any]:
@@ -62,9 +77,6 @@ def schema() -> dict[str, Any]:
     doc = _inline(doc, doc.pop("$defs"))
     for event in doc["anyOf"]:
         _normalise(event)
-        for prop in event["properties"].values():
-            if prop.get("type") == "array" and isinstance(prop.get("items"), dict):
-                _normalise(prop["items"])
     return doc
 
 

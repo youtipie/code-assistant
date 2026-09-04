@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/api/client";
+import { api, type Message } from "@/api/client";
 import { AssistantTurn } from "@/components/AssistantTurn";
 import { Composer } from "@/components/Composer";
 import { ServerStatusBar } from "@/components/ServerStatusBar";
 import { useChatSocket } from "@/transport/useChatSocket";
-import { isStreaming, useChatStore, type Turn } from "@/state/chatStore";
+import {
+  isStreaming,
+  serverOf,
+  useChatStore,
+  type ToolInvocation,
+  type Turn,
+} from "@/state/chatStore";
 import "./ChatRoute.css";
 
 const EXAMPLES = [
@@ -15,9 +21,27 @@ const EXAMPLES = [
   "When was complete_checkout.py last changed, and by which PR?",
 ];
 
-function turnsFromHistory(
-  messages: { role: string; text: string; turn_id: string | null }[],
-): Turn[] {
+/** The stored rows for one turn, as the cards want them.
+ *
+ * `status` widens to `string` crossing the API boundary; anything outside the
+ * three the UI knows was written by a newer server, and "running" is the
+ * honest reading -- an outcome we cannot vouch for either way.
+ */
+function toolsFromHistory(tools: Message["tools"]): ToolInvocation[] {
+  return tools.map((tool) => ({
+    callId: tool.call_id,
+    name: tool.name,
+    server: serverOf(tool.name),
+    arguments: tool.arguments,
+    status:
+      tool.status === "ok" || tool.status === "error" ? tool.status : "running",
+    ...(tool.preview ? { preview: tool.preview } : {}),
+    hits: tool.hits,
+    ...(tool.duration_ms === null ? {} : { durationMs: tool.duration_ms }),
+  }));
+}
+
+function turnsFromHistory(messages: Message[]): Turn[] {
   const turns: Turn[] = [];
   let question = "";
   for (const message of messages) {
@@ -30,14 +54,17 @@ function turnsFromHistory(
       id: message.turn_id ?? `history-${turns.length}`,
       question,
       text: message.text,
-      tools: [],
+      tools: toolsFromHistory(message.tools),
       status: "completed",
       startedAt: 0,
+      ...(message.stats ? { stats: message.stats } : {}),
     });
     question = "";
   }
 
   if (question) {
+    // a question whose turn wrote no assistant message: cancelled, or the
+    // reply was lost. Its tool rows hang off a turn_id no message carries.
     turns.push({
       id: `history-pending-${turns.length}`,
       question,

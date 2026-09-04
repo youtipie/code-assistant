@@ -28,12 +28,14 @@ app via the INVOICE_REQUEST webhook (saleor/plugins/webhook/plugin.py:1282)…
   server, discovered at runtime
 - **Streaming chat** — WebSocket with live tool calls, mid-turn cancellation
   and multi-session history
+- **Scoped by design** — a classifier gate answers "who is Joe Biden?" with a
+  refusal before the agent runs; only questions about the corpus get a turn
 - **Verifiable citations** — every claim links to a file and line at the exact
   indexed commit
 - **PR review and issue triage** — reads a diff or an issue and answers in chat
 - **Local embeddings** — ONNX on CPU, no API calls during ingestion
-- **Retrieval eval** — 25 questions scored with `ranx`, including a
-  permutation test when comparing configurations
+- **Retrieval eval** — 25 questions scored with `ranx`: `hit_rate@{1,3,5,10}`
+  and MRR, listing every question that fell outside the top 5
 
 ## Architecture
 
@@ -53,7 +55,8 @@ Browser / CLI ──WebSocket──► FastAPI gateway ──► LangGraph agent
 | `web` | React client behind nginx | 3000 |
 | `gateway` | WebSocket + REST API, agent runtime | 8000 |
 | `knowledge` | MCP server for code and doc retrieval | 8080 |
-| `postgres` | Sessions, documents, chunks, checkpoints | 5433 |
+| `phoenix` | Local LLM trace UI and OTLP collector | 6006 |
+| `postgres` | Sessions, documents, chunks, checkpoints, traces | 5433 |
 | `migrate` | Runs migrations, then exits | — |
 | `ingest` | One-shot corpus loader (profile `tools`) | — |
 
@@ -84,6 +87,11 @@ Open <http://localhost:3000>, or use the CLI:
 uv run clients/cli.py
 ```
 
+Traces are at <http://localhost:6006>: every model call with its prompt and
+response, tokens, cost and latency, grouped into one session per conversation.
+Each answer in the web client also carries a footer with the same numbers for
+that turn. Set `TRACING_ENABLED=false` to run without it.
+
 ## Usage
 
 ### Web client
@@ -111,8 +119,27 @@ docker compose run --rm ingest chunk                   # chunk and embed
 docker compose run --rm ingest chunk --force           # re-chunk everything
 docker compose run --rm ingest search "how do refunds work"
 docker compose run --rm ingest eval                    # hit_rate@k and MRR
-docker compose run --rm ingest eval --compare          # A/B with a significance test
+docker compose run --rm ingest eval --limit 20         # score deeper than the default 10
+docker compose run --rm ingest eval --questions /srv/evals/my_set.yaml
 ```
+
+### Scope
+
+The assistant answers about the indexed corpus and nothing else. Every question
+is classified first, and one that has no connection to the codebase — a recipe,
+a public figure, a bubble sort in Rust — is refused before the agent runs, so it
+costs no tools and leaves nothing in the conversation for the next question to
+be read against. The rule is stated twice on purpose: the gate enforces it, and
+the system prompt states it again for anything that gets past. Ties go to
+answering — a wrongly refused question looks broken, and the agent still says
+"I could not find this in the indexed corpus" on its own.
+
+```bash
+uv run evals/scope.py            # 24 cases: on-topic, follow-ups, off-topic
+uv run evals/scope.py --verbose  # every case, not just the failures
+```
+
+Set `SCOPE_GUARD_ENABLED=false` to measure the agent without it.
 
 ### Example questions
 
@@ -137,7 +164,13 @@ Everything lives in `.env`. See `.env.example` for the full list.
 | `OPENAI_REASONING_EFFORT` | — | `minimal`…`high`, or `none` |
 | `GITHUB_TOKEN` | — | Enables the GitHub MCP server; skipped if empty |
 | `CORPUS_REPOS` | `saleor/saleor=saleor/,saleor/saleor-docs=docs/` | Repo per path prefix |
+| `CORPUS_NAME` | `Saleor` | What the assistant says it covers, in the scope gate's prompt and its refusal |
+| `SCOPE_GUARD_ENABLED` | `true` | Refuse off-topic questions before the agent runs |
+| `SCOPE_MODEL` | `gpt-4.1-mini` | Classifier for the scope gate; small and non-reasoning |
 | `MAX_STEPS` | `12` | Tool hops per turn |
+| `TRACING_ENABLED` | `true` | Export traces to Phoenix |
+| `PHOENIX_COLLECTOR_ENDPOINT` | `http://phoenix:6006` | Where the gateway sends spans |
+| `MODEL_PRICES` | — | `model=input/cached/output[/cache_write]` USD per 1M tokens, comma-separated; overrides the built-in table. An unpriced model shows a dash instead of a guess |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | Local embedding model |
 | `MCP_CONFIG` | `agent/mcp_servers.json` (absolute path, resolved relative to `agent/src/agent/config.py`) | MCP server declarations |
 
@@ -147,8 +180,9 @@ absent.
 
 ### Indexing a different repository
 
-Edit `SOURCES` in `ingestion/app/sources.py`, set `CORPUS_REPOS` to match, then
-re-run `ingest load` and `ingest chunk`.
+Edit `SOURCES` in `ingestion/app/sources.py`, set `CORPUS_REPOS` and
+`CORPUS_NAME` to match, adjust the first line of `SYSTEM_PROMPT`, then re-run
+`ingest load` and `ingest chunk`.
 
 ## Project structure
 
@@ -162,6 +196,7 @@ ingestion/           clone → chunk → embed → load, plus search and eval CL
 web/                 React + TypeScript client
 clients/cli.py       terminal client
 evals/questions.yaml retrieval eval set
+evals/scope_cases.yaml + scope.py   scope-gate eval set and runner
 ```
 
 ## Development

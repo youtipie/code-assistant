@@ -9,14 +9,12 @@ log = logging.getLogger(__name__)
 class TaskRegistry:
     """Fire-and-forget work that must still finish before the process exits.
 
-    A turn's closing writes outlive the task that started them: the websocket
-    handler cancels that task as soon as the client disconnects, which on the
-    happy path is immediately after turn.end. Shielding the write alone is not
-    enough -- if the await being shielded is itself cancelled the coroutine is
-    orphaned, so nothing retrieves its exception and shutdown is not gated on
-    it. Holding a reference here closes both gaps: `spawn` keeps the task
-    alive and reachable, and `drain` lets shutdown wait for it before the DB
-    engine it is writing through goes away.
+    A turn's closing writes outlive the task that started them -- the socket
+    handler cancels that task the moment the client disconnects, which on the
+    happy path is right after turn.end. Shielding the write is not enough: a
+    cancelled shield orphans the coroutine, so nothing retrieves its exception
+    and shutdown does not wait for it. `spawn` keeps the task reachable, and
+    `drain` holds shutdown until it is done with the DB engine.
     """
 
     def __init__(self, name: str, drain_timeout: float = 5.0) -> None:

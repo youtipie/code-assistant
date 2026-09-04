@@ -41,10 +41,9 @@ SOURCES = (
         repo="saleor/saleor-docs",
         source_type="doc",
         paths=("docs",),
-        # 2014 generated GraphQL reference files: 174k lines, 80% of the whole
-        # corpus, and near-identical to each other. Indexing them would swamp
-        # every retrieval with boilerplate. Real questions are answered by
-        # docs/developer, and the schema itself is better served by code search.
+        # 2014 generated GraphQL reference files: 174k lines, 80% of the
+        # corpus, near-identical, and they would swamp every retrieval with
+        # boilerplate. Real questions are answered out of docs/developer.
         exclude=("docs/api-reference",),
     ),
 )

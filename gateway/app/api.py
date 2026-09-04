@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 from collections.abc import AsyncIterator
 from typing import Annotated, Any
 
 from core.db import session
-from core.models import Document, Message, Session, Turn
+from core.events import RetrievalHit, TurnStats
+from core.models import Document, Message, Session, ToolInvocation, Turn
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -26,12 +28,35 @@ class SessionSummary(BaseModel):
     turn_count: int
 
 
+class ToolCallOut(BaseModel):
+    """One persisted tool call, shaped for the card that renders it.
+
+    `RetrievalHit` is the model the `retrieval.hits` frame carries, so a
+    replayed card and a live one are fed identical source links.
+    """
+
+    call_id: str
+    name: str
+    arguments: dict[str, Any]
+    # "ok" | "error" | "running", the last meaning the turn died mid-flight
+    status: str
+    preview: str | None
+    hits: list[RetrievalHit]
+    duration_ms: int | None
+
+
 class MessageOut(BaseModel):
     id: int
     role: str
     text: str
     turn_id: str | None
     created_at: str
+    # Nullable but required, no default -- the rule schema_export.py applies
+    # to the socket events: optional-and-nullable is two shapes for the client.
+    stats: TurnStats | None
+    # empty for user messages, and for assistant turns recorded before the
+    # trace was persisted -- which is not the same as having made no calls
+    tools: list[ToolCallOut]
 
 
 class ServerStatus(BaseModel):
@@ -117,16 +142,18 @@ async def list_sessions(
 async def session_messages(owned: OwnedSession) -> list[MessageOut]:
     db, row = owned
     rows = (
-        (
-            await db.execute(
-                select(Message)
-                .where(Message.session_id == row.id)
-                .order_by(Message.created_at, Message.id)
-            )
+        await db.execute(
+            # outer join: user messages carry no turn_id, and an assistant
+            # message whose turn row was lost should still be readable
+            select(Message, Turn)
+            .outerjoin(Turn, Message.turn_id == Turn.id)
+            .where(Message.session_id == row.id)
+            .order_by(Message.created_at, Message.id)
         )
-        .scalars()
-        .all()
-    )
+    ).all()
+
+    # one query for the session, rather than N round trips to open it
+    tools = await _tools_of(db, row.id)
 
     return [
         MessageOut(
@@ -135,8 +162,10 @@ async def session_messages(owned: OwnedSession) -> list[MessageOut]:
             text=_text_of(m.content),
             turn_id=str(m.turn_id) if m.turn_id else None,
             created_at=m.created_at.isoformat(),
+            stats=_stats_of(turn),
+            tools=tools.get(m.turn_id, []),
         )
-        for m in rows
+        for m, turn in rows
     ]
 
 
@@ -175,6 +204,59 @@ async def status() -> Status:
         snapshots=[Snapshot(repo=repo, commit=commit) for repo, commit in rows],
         servers=servers,
         tools=sorted(ag.tools),
+    )
+
+
+async def _tools_of(
+    db: AsyncSession, session_id: uuid.UUID
+) -> dict[uuid.UUID, list[ToolCallOut]]:
+    """Every tool call in the session, grouped by the turn that made it."""
+    rows = (
+        await db.execute(
+            select(ToolInvocation)
+            .join(Turn, ToolInvocation.turn_id == Turn.id)
+            .where(Turn.session_id == session_id)
+            # ordinal, not created_at: calls issued in the same millisecond
+            # would otherwise renumber the cards between reloads
+            .order_by(ToolInvocation.turn_id, ToolInvocation.ordinal)
+        )
+    ).scalars()
+
+    grouped: dict[uuid.UUID, list[ToolCallOut]] = defaultdict(list)
+    for row in rows:
+        grouped[row.turn_id].append(
+            ToolCallOut(
+                call_id=row.call_id,
+                name=row.name,
+                arguments=row.arguments,
+                status=row.status,
+                preview=row.preview,
+                hits=[RetrievalHit(**hit) for hit in row.hits],
+                duration_ms=row.duration_ms,
+            )
+        )
+    return grouped
+
+
+def _stats_of(turn: Turn | None) -> TurnStats | None:
+    """Rebuild a turn's stats from its row, or None if it has none.
+
+    `duration_ms` is the marker: written if and only if the whole TurnStats
+    was, so it tells "no stats recorded" from a genuine zero.
+    """
+    if turn is None or turn.duration_ms is None:
+        return None
+    return TurnStats(
+        model=turn.model or "",
+        prompt_tokens=turn.prompt_tokens or 0,
+        completion_tokens=turn.completion_tokens or 0,
+        cached_tokens=turn.cached_tokens or 0,
+        cache_write_tokens=turn.cache_write_tokens or 0,
+        cost_usd=None if turn.cost_usd is None else float(turn.cost_usd),
+        ttft_ms=turn.ttft_ms,
+        duration_ms=turn.duration_ms,
+        steps=turn.steps or 0,
+        tool_calls=turn.tool_calls or 0,
     )
 
 

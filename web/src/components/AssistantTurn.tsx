@@ -7,6 +7,7 @@ import { turnTranscript } from "@/lib/transcript";
 import { ToolCallCard } from "./ToolCallCard";
 import { UserMessage } from "./UserMessage";
 import { CopyButton } from "./CopyButton";
+import { TurnStats } from "./TurnStats";
 import "./AssistantTurn.css";
 
 interface Props {
@@ -36,11 +37,9 @@ function linkify(text: string, snapshots: Snapshots): string {
 
 /** `value`, but updated at most once per `ms` while `active`.
  *
- * A streamed answer arrives as thousands of small deltas -- 2,438 in a
- * measured turn. Re-parsing the whole markdown document that many times is
- * what froze the main thread; the eye cannot tell 12 updates a second from
- * 60 anyway. Once `active` goes false the exact final value lands
- * immediately, so a finished answer is never a throttled approximation.
+ * A streamed answer arrives as thousands of deltas -- 2,438 in a measured
+ * turn -- and re-parsing the markdown that often froze the main thread. Once
+ * `active` goes false the exact final value lands immediately.
  */
 function useThrottled(value: string, ms: number, active: boolean): string {
   const [shown, setShown] = useState(value);
@@ -69,17 +68,15 @@ function useThrottled(value: string, ms: number, active: boolean): string {
   return shown;
 }
 
-// memo, because ChatRoute re-renders the whole turn list on every token delta
-// of whichever turn is streaming. Without this, each delta re-parsed the
-// markdown of every *finished* turn too -- work proportional to the whole
-// conversation, paid thousands of times per answer. chatStore's updateTurn
-// only rebuilds the turn its event names, so finished turns bail out here.
+// memo, because ChatRoute re-renders the whole turn list on every token
+// delta: without this, each delta re-parsed the markdown of every *finished*
+// turn too. chatStore's updateTurn only rebuilds the turn its event names.
 export const AssistantTurn = memo(function AssistantTurn({ turn, snapshots }: Props) {
   const streaming = turn.status === "streaming";
   const source = useThrottled(turn.text, 80, streaming);
 
-  // the parse is the expensive part: hold the element identity steady so
-  // React skips the subtree entirely when only the surrounding turn changed
+  // hold the element identity steady so React skips the subtree when only
+  // the surrounding turn changed
   const answer = useMemo(
     () => <ReactMarkdown remarkPlugins={[remarkGfm]}>{linkify(source, snapshots)}</ReactMarkdown>,
     [source, snapshots],
@@ -106,9 +103,10 @@ export const AssistantTurn = memo(function AssistantTurn({ turn, snapshots }: Pr
 
       {turn.text && <div className="turn__answer">{answer}</div>}
 
-      {turn.text && !streaming && (
+      {!streaming && (turn.text || turn.stats) && (
         <div className="turn__actions">
-          <CopyButton text={turnTranscript(turn)} label="Copy transcript" />
+          {turn.text && <CopyButton text={turnTranscript(turn)} label="Copy transcript" />}
+          {turn.stats && <TurnStats stats={turn.stats} />}
         </div>
       )}
 

@@ -49,14 +49,12 @@ async def fetch_candidates(
     if path_prefix:
         filters.append(Chunk.path.startswith(path_prefix))
 
-    # --- dense branch: rank by cosine distance -----------------------------
     dense = _ranked_cte("dense", Chunk.embedding.cosine_distance(embedding), filters)
 
-    # --- lexical branch: rank by ts_rank -----------------------------------
     # websearch_to_tsquery tolerates human input (quotes, OR, -) without
-    # raising, which plainto_/to_tsquery do not
-    # the config argument is regconfig, not text -- without the cast psycopg
-    # binds a varchar and Postgres finds no matching function
+    # raising, which plainto_/to_tsquery do not. The config argument is
+    # regconfig, not text: without the cast psycopg binds a varchar and
+    # Postgres finds no matching function.
     tsquery = func.websearch_to_tsquery(
         cast(literal("english"), REGCONFIG), query
     )
@@ -67,7 +65,8 @@ async def fetch_candidates(
         Chunk.search_tsv.op("@@")(tsquery),
     )
 
-    # --- any-term branch ----------------------------------------------------
+    # a partial-match branch, so a query where no chunk carries every term
+    # still ranks the ones carrying some
     words = re.findall(r"[A-Za-z0-9_]{2,}", query)
     terms = list(dict.fromkeys(w.lower() for w in words))
     if not terms:
@@ -83,7 +82,6 @@ async def fetch_candidates(
         Chunk.search_tsv.op("@@")(any_query),
     )
 
-    # --- fuse ---------------------------------------------------------------
     fused_id = func.coalesce(dense.c.id, lexical.c.id, any_term.c.id).label("id")
     score = (
         func.coalesce(1.0 / (RRF_K + cast(dense.c.rank, Float)), 0.0)

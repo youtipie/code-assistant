@@ -1,10 +1,9 @@
 """Turning raw tool output into the text the model sees.
 
 Two cases, deliberately kept apart: the knowledge server's results have a
-schema this repo owns and are parsed and rendered into citation-carrying
-blocks (`knowledge`); everything else is third-party data with no schema we
-control, wrapped and labelled as such (`external`, with `diffs` for the one
-payload shape big enough to need truncating).
+schema this repo owns and become citation-carrying blocks (`knowledge`);
+everything else is third-party data with no schema we control, wrapped and
+labelled as such (`external`, plus `diffs` for oversized payloads).
 """
 
 from __future__ import annotations
@@ -54,8 +53,7 @@ def render(server: str, tool: str, raw: str) -> tuple[str, Hits | None]:
     try:
         return renderer(payload)
     except ValidationError:
-        # the knowledge server returned something this build does not
-        # understand -- say so rather than raising into the tool call, where
-        # it would surface to the model as an opaque adapter error
+        # something this build does not understand: say so rather than
+        # raising, which reaches the model as an opaque adapter error
         log.exception("%s.%s returned an unexpected shape", server, tool)
         return f"{tool} returned a response this client cannot read.", None

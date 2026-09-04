@@ -110,6 +110,26 @@ export interface components {
             turn_id: string | null;
             /** Created At */
             created_at: string;
+            stats: components["schemas"]["TurnStats"] | null;
+            /** Tools */
+            tools: components["schemas"]["ToolCallOut"][];
+        };
+        /**
+         * RetrievalHit
+         * @description One passage the UI can link to, built by the knowledge renderer.
+         *
+         *     `citation` is the `path:line` form the system prompt tells the model to
+         *     cite, so the UI and the answer text agree on how a source is named.
+         */
+        RetrievalHit: {
+            /** Path */
+            path: string;
+            /** Citation */
+            citation: string;
+            /** Start Line */
+            start_line: number;
+            /** Source Type */
+            source_type: string;
         };
         /** ServerStatus */
         ServerStatus: {
@@ -154,6 +174,62 @@ export interface components {
             servers: components["schemas"]["ServerStatus"][];
             /** Tools */
             tools: string[];
+        };
+        /**
+         * ToolCallOut
+         * @description One persisted tool call, shaped for the card that renders it.
+         *
+         *     `RetrievalHit` is the model the `retrieval.hits` frame carries, so a
+         *     replayed card and a live one are fed identical source links.
+         */
+        ToolCallOut: {
+            /** Call Id */
+            call_id: string;
+            /** Name */
+            name: string;
+            /** Arguments */
+            arguments: {
+                [key: string]: unknown;
+            };
+            /** Status */
+            status: string;
+            /** Preview */
+            preview: string | null;
+            /** Hits */
+            hits: components["schemas"]["RetrievalHit"][];
+            /** Duration Ms */
+            duration_ms: number | null;
+        };
+        /**
+         * TurnStats
+         * @description What one turn cost and how long it took.
+         *
+         *     `ttft_ms` runs to the first `TextDelta`, so a turn that searched for eight
+         *     seconds before writing a word reports eight seconds -- what the user waits
+         *     on, not the model's prefill latency. `cost_usd` is None when the model is
+         *     not priced; see `core.pricing`.
+         */
+        TurnStats: {
+            /** Model */
+            model: string;
+            /** Prompt Tokens */
+            prompt_tokens: number;
+            /** Completion Tokens */
+            completion_tokens: number;
+            /** Cached Tokens */
+            cached_tokens: number;
+            /** Cache Write Tokens */
+            cache_write_tokens: number;
+            /** Cost Usd */
+            cost_usd: number | null;
+            /** Ttft Ms */
+            ttft_ms: number | null;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Steps */
+            steps: number;
+            /** Tool Calls */
+            tool_calls: number;
         };
         /** ValidationError */
         ValidationError: {

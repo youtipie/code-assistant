@@ -80,13 +80,9 @@ async def steps(stream: AsyncIterator, state: TurnState) -> AsyncIterator[Step]:
                 stream_next = asyncio.ensure_future(_anext(stream))
                 yield Message(outcome)
     finally:
-        # Runs on every exit: normal break, an exception propagating to
-        # run_turn's except clauses, or this task being cancelled (real
-        # Cancel, or asyncio.timeout firing) while suspended in the
-        # asyncio.wait above. asyncio.wait never cancels the tasks it was
-        # waiting on -- that's on the caller -- so without this, stream_next
-        # left running would keep driving astream() (and whatever MCP call it
-        # is mid-flight on) with nothing left consuming it.
+        # asyncio.wait never cancels the tasks it was waiting on, so on any
+        # exit -- break, exception, cancellation -- a surviving stream_next
+        # would keep driving astream() with nothing left consuming it.
         await _cancel_and_drain(stream_next)
         await _cancel_and_drain(wake)
 
@@ -101,14 +97,11 @@ async def _anext(stream: AsyncIterator) -> object:
     """`await stream.__anext__()`, with `StopAsyncIteration` turned into a
     sentinel return value.
 
-    Needed because this coroutine is wrapped in a Task and raced via
-    asyncio.wait rather than driven by a normal `async for` -- a Task that
-    raises StopAsyncIteration is indistinguishable, from the outside, from
-    one that raised any other exception; `async for`'s special-casing of
-    StopAsyncIteration only applies to the coroutine it calls directly, not
-    to a Task wrapping that coroutine. Any other exception (including ones
-    raised deep inside a tool call) is left to propagate through
-    `stream_next.result()` unchanged -- run_turn's except clauses handle those.
+    This coroutine is wrapped in a Task and raced via asyncio.wait, and a Task
+    that raises StopAsyncIteration looks like one that raised anything else:
+    `async for`'s special-casing reaches the coroutine it calls directly, not
+    a Task around it. Every other exception is left to propagate through
+    `stream_next.result()`, where run_turn's except clauses handle it.
     """
     try:
         return await stream.__anext__()
@@ -117,35 +110,20 @@ async def _anext(stream: AsyncIterator) -> object:
 
 
 async def _cancel_and_drain(task: asyncio.Task) -> None:
-    """Cancel `task` if still running, then retrieve its outcome either way.
+    """Cancel `task` if still running, then retrieve its outcome either way,
+    so it never lingers un-awaited.
 
-    Always awaits so the task's result/exception is retrieved exactly once
-    and it never lingers un-awaited (task destroyed while pending, or an
-    exception never retrieved). A CancelledError raised by cancelling `task`
-    ourselves (or by re-awaiting a task whose cancellation was already
-    consumed by the caller via stream_next.result()) is expected and
-    swallowed. But if a *fresh* cancellation of run_turn's own task lands
-    while this await is in flight -- a second Cancel, or asyncio.timeout
-    firing exactly during this cleanup window -- that must keep propagating,
-    or it is silently lost: this coroutine only ever runs from a finally
-    block, with no enclosing except clause of its own, so a swallowed
-    cancellation here would let run_turn fall through to
-    TurnEnd(reason="completed") instead of the cancelled/timed-out turn it
-    actually was. Task.cancelling() distinguishes the two cases: it only
-    increments on a genuine new .cancel() call against the *current* task,
-    not on the .cancel() this function issues against `task` (a different
-    Task object) or on re-observing an already-delivered one. Any other
-    exception (e.g. a failure during the graph stream's own cancellation
-    cleanup) is logged, not discarded -- this cleanup path shouldn't mask a
-    real bug in the thing being cleaned up.
+    This only ever runs from a finally block, with no except clause of its own
+    around it, so a swallowed cancellation would let run_turn fall through to
+    TurnEnd(reason="completed") for a turn that was actually cancelled. The
+    CancelledError from our own `task.cancel()` is expected; a *fresh*
+    cancellation of run_turn's task landing during this await must keep
+    propagating, and `cancelling()` tells them apart -- it only increments on
+    a new .cancel() against the current task.
 
-    If `task` is already done and ended with the exception currently
-    propagating through this call (i.e. the caller reached us via a
-    finally/except after already pulling that exception out of `task` via
-    `.result()`), re-awaiting it here would just re-raise and re-log the
-    same failure under a misleading "stream cleanup failed" banner. Detect
-    that case via `sys.exc_info()` and return without touching the task
-    further -- it has nothing left to cancel or retrieve.
+    The early return is for the caller arriving while `task`'s own exception
+    is propagating: re-awaiting would re-raise and re-log it as a cleanup
+    failure.
     """
     if task.done() and not task.cancelled():
         exc = task.exception()

@@ -132,6 +132,74 @@
               "type": "null"
             }
           ]
+        },
+        "stats": {
+          "anyOf": [
+            {
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "prompt_tokens": {
+                  "type": "integer"
+                },
+                "completion_tokens": {
+                  "type": "integer"
+                },
+                "cached_tokens": {
+                  "type": "integer"
+                },
+                "cache_write_tokens": {
+                  "type": "integer"
+                },
+                "cost_usd": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ttft_ms": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "duration_ms": {
+                  "type": "integer"
+                },
+                "steps": {
+                  "type": "integer"
+                },
+                "tool_calls": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "model",
+                "prompt_tokens",
+                "completion_tokens",
+                "cached_tokens",
+                "cache_write_tokens",
+                "cost_usd",
+                "ttft_ms",
+                "duration_ms",
+                "steps",
+                "tool_calls"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -140,7 +208,8 @@
         "type",
         "turn_id",
         "reason",
-        "message"
+        "message",
+        "stats"
       ],
       "type": "object"
     },
@@ -164,6 +233,9 @@
           "type": "string"
         },
         "turn_id": {
+          "type": "string"
+        },
+        "call_id": {
           "type": "string"
         },
         "hits": {
@@ -198,6 +270,7 @@
         "session_id",
         "type",
         "turn_id",
+        "call_id",
         "hits"
       ],
       "type": "object"
@@ -287,6 +360,9 @@
               "type": "null"
             }
           ]
+        },
+        "duration_ms": {
+          "type": "integer"
         }
       },
       "required": [
@@ -296,7 +372,8 @@
         "turn_id",
         "call_id",
         "status",
-        "preview"
+        "preview",
+        "duration_ms"
       ],
       "type": "object"
     },

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
@@ -12,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -32,10 +34,9 @@ class Session(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    # Who this conversation belongs to. A client-generated token, not an
-    # identity: it scopes one browser's history so several people sharing a
-    # deployment do not read each other's questions. It is trivially forgeable
-    # and is not a security boundary -- that arrives with real auth.
+    # Who this conversation belongs to: a client-generated token, not an
+    # identity. It scopes one browser's history so people sharing a deployment
+    # do not read each other's questions; it is forgeable, not a boundary.
     owner: Mapped[str | None] = mapped_column(String(64))
     title: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
@@ -69,6 +70,17 @@ class Turn(Base):
     model: Mapped[str | None] = mapped_column(String(64))
     prompt_tokens: Mapped[int | None] = mapped_column(Integer)
     completion_tokens: Mapped[int | None] = mapped_column(Integer)
+    # already inside prompt_tokens; kept apart because each is billed at its
+    # own rate
+    cached_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer)
+    # Numeric, not Float: money. Six decimals -- a turn can cost fractions of
+    # a cent.
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
+    ttft_ms: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    steps: Mapped[int | None] = mapped_column(Integer)
+    tool_calls: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -76,6 +88,13 @@ class Turn(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     session: Mapped[Session] = relationship(back_populates="turns")
+    tool_invocations: Mapped[list[ToolInvocation]] = relationship(
+        back_populates="turn",
+        cascade="all, delete-orphan",
+        # the FK already cascades in the database; without this, deleting a
+        # session would load every tool row just to delete them one at a time
+        passive_deletes=True,
+    )
 
 
 class Message(Base):
@@ -98,6 +117,53 @@ class Message(Base):
     )
 
     session: Mapped[Session] = relationship(back_populates="messages")
+
+
+class ToolInvocation(Base):
+    """One tool call the model made, as the UI showed it.
+
+    `messages` records only the two ends of a turn -- the question and the
+    final answer -- so without this a reloaded conversation drops the work in
+    between. This is transcript, not telemetry: `turns.tool_calls` counts.
+
+    Not named `ToolCall`, which in `core.events` is the wire frame announcing
+    a call before it has a result; this row is the whole call.
+    """
+
+    __tablename__ = "tool_invocations"
+    __table_args__ = (
+        Index("ix_tool_invocations_turn_ordinal", "turn_id", "ordinal"),
+        UniqueConstraint("turn_id", "call_id", name="uq_tool_invocations_call"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    turn_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("turns.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    # the interceptor's id, which is what ties retrieval hits to their call
+    call_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    # call order within the turn: the UI numbers the steps, and `created_at`
+    # cannot separate two calls issued in the same millisecond
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    # "ok" | "error", or "running" for a call whose turn died mid-flight
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    preview: Mapped[str | None] = mapped_column(Text)
+    # RetrievalHit dicts; denormalised because they are only read back
+    # alongside the row
+    hits: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, server_default="[]"
+    )
+    # NULL for a call with no result, which is not a call that took no time
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    turn: Mapped[Turn] = relationship(back_populates="tool_invocations")
 
 
 class Document(Base):

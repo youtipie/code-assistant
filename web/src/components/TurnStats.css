@@ -1,0 +1,32 @@
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--text-3);
+}
+
+.stats__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.stats__item dt {
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  opacity: 0.75;
+}
+
+.stats__item dd {
+  margin: 0;
+}
+
+.stats__value {
+  color: var(--text-2);
+  white-space: nowrap;
+}

@@ -22,6 +22,14 @@ class Settings(BaseAppSettings):
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     mcp_config: str = _DEFAULT_MCP_CONFIG
 
+    # off is a supported configuration: the system prompt still carries the
+    # scope rule, and measuring the agent itself wants the gate out of the way
+    scope_guard_enabled: bool = True
+    scope_model: str = "gpt-4.1-mini"
+
+    # what the assistant says it covers, in the gate's prompt and its refusal
+    corpus_name: str = "Saleor"
+
     # "owner/repo=path/prefix/" pairs, parsed once at load rather than on
     # every access -- repo_for_path walks the whole list per tool call.
     corpus_repos: list[tuple[str, str]] = Field(

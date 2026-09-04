@@ -51,7 +51,10 @@ class Client:
                 suffix = "" if reason == "completed" else f"  [{reason}]"
                 if event.get("message"):
                     suffix += f" {event['message']}"
-                print(suffix + "\n", flush=True)
+                print(suffix, flush=True)
+                if stats := event.get("stats"):
+                    print(_stats_line(stats), flush=True)
+                print(flush=True)
                 self.streaming.clear()
                 self.turn_done.set()
             elif kind == "error":
@@ -64,6 +67,20 @@ class Client:
 
     async def send(self, payload: dict) -> None:
         await self.ws.send(json.dumps(payload))
+
+
+def _stats_line(stats: dict) -> str:
+    """The same numbers the web client shows under an answer."""
+    parts = [stats["model"] or "unknown"]
+    if stats["ttft_ms"] is not None:
+        parts.append(f"{stats['ttft_ms'] / 1000:.1f}s to first token")
+    parts.append(f"{stats['duration_ms'] / 1000:.1f}s total")
+    parts.append(f"{stats['prompt_tokens']} in / {stats['completion_tokens']} out")
+    cost = stats["cost_usd"]
+    parts.append("cost unknown" if cost is None else f"${cost:.4f}")
+    parts.append(f"{stats['steps']} step" + ("" if stats['steps'] == 1 else "s"))
+    parts.append(f"{stats['tool_calls']} tools")
+    return "  \u00b7 " + "  \u00b7 ".join(parts)
 
 
 async def read_lines() -> asyncio.Queue[str | None]:

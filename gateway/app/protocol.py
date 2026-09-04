@@ -48,10 +48,9 @@ def parse_client_event(raw: Any) -> ClientEvent:
 # server -> client
 # --------------------------------------------------------------------------
 #
-# The events the agent produces are defined once in core.events and imported
-# above; they are re-exported through __all__ so this module stays the single
-# import site for gateway's own code. Only the four events gateway alone can
-# mint -- it owns the socket and the turn ids -- are declared here.
+# The agent's events are defined in core.events and re-exported through
+# __all__, so this stays gateway's single import site for the wire contract.
+# Only the four events gateway itself mints are declared here.
 
 
 class SessionCreated(ServerEvent):
@@ -71,12 +70,10 @@ class Pong(ServerEvent):
     type: Literal["pong"] = "pong"
 
 
-# Every frame gateway can send, in one name so `schema_export` can hand the
-# whole contract to the web client. Deliberately a plain union and not
-# Annotated[..., Field(discriminator="type")]: pydantic renders a
-# discriminated union as JSON Schema `oneOf`, which json-schema-to-zod turns
-# into an untyped `z.any().superRefine(...)`; `anyOf` becomes a real z.union
-# that still narrows on `type`.
+# Every frame gateway can send, in one name for `schema_export`. Deliberately
+# not Annotated[..., Field(discriminator="type")]: pydantic renders that as
+# JSON Schema `oneOf`, which json-schema-to-zod turns into an untyped
+# `z.any().superRefine(...)`, where `anyOf` becomes a real z.union.
 ServerEventUnion = (
     SessionCreated
     | TurnStart

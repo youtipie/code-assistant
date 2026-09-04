@@ -91,7 +91,6 @@ async def read_file(
     start_line: int = 1,
     end_line: int = 200,
 ) -> FileWindow | ToolError:
-    # --- look the document up ---
     async with session() as db:
         row = await document(db, path)
         if row is None:
@@ -99,7 +98,6 @@ async def read_file(
 
         content, total = row
 
-        # --- resolve a symbol to a line range, if one was asked for ---
         resolved = None
         if symbol:
             candidates = [
@@ -112,7 +110,6 @@ async def read_file(
             resolved = match.name
             start_line, end_line = symbol_window(match)
 
-    # --- clamp the window ---
     # an explicit range too small to be useful is widened; a symbol's own
     # range is exactly what was asked for and is left alone
     if not resolved and end_line - start_line < MIN_WINDOW:
@@ -122,7 +119,6 @@ async def read_file(
     start_line = max(1, start_line)
     end_line = min(end_line, len(lines))
 
-    # --- render ---
     text, served_end = _render_window(lines, start_line, end_line)
     truncated = served_end < end_line
     return FileWindow(

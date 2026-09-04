@@ -142,9 +142,16 @@ def graph():
     return _runtime.graph
 
 
-async def repair_dangling_tool_calls(config: dict) -> int:
+async def checkpoint_messages(config: dict) -> list:
+    """This thread's messages as the checkpointer holds them. Reading state
+    deserialises the whole conversation, so a turn reads once and shares it."""
     state = await graph().aget_state(config)
-    messages = state.values.get("messages", []) if state.values else []
+    return state.values.get("messages", []) if state.values else []
+
+
+async def repair_dangling_tool_calls(config: dict, messages: list | None = None) -> int:
+    if messages is None:
+        messages = await checkpoint_messages(config)
     if not messages:
         return 0
 

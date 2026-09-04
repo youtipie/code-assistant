@@ -5,10 +5,6 @@
 already depend on -- because the two are separate deployables that must not
 import each other, yet need one definition of the shape between them.
 
-Previously each tool hand-built a `json.dumps({...})` and the renderer read
-it back with unguarded subscripts against no schema, so a change on one side
-failed on the other at runtime, mid-turn.
-
 Imports only pydantic, so parsing a tool result never drags `core.models`
 into the persistence-free agent.
 """

@@ -24,8 +24,3 @@ class Chunk:
     heading_path: str | None = None
     context_header: str = ""
     search_text: str = field(default="")
-
-
-# --------------------------------------------------------------------------
-# identifier splitting
-# --------------------------------------------------------------------------

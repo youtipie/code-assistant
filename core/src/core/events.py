@@ -1,11 +1,8 @@
-"""The events `agent.run_turn` yields and `gateway` sends: one definition.
+"""The events `agent.run_turn` yields and `gateway` sends: one definition,
+owned by `core` because it is the leaf both members already depend on. Imports
+only pydantic, so `agent` yielding these stays persistence-free.
 
-These were three -- dataclasses in `agent`, pydantic models in `gateway`, and
-a field-for-field adapter between them -- so every shape change was a
-three-file edit with nothing to catch a miss. `core` owns them because it is
-the leaf both members already depend on.
-
-Two things here are load-bearing for the wire format:
+Two things are load-bearing for the wire format:
 
 * **Field declaration order is the serialised key order.** Pydantic emits base
   fields first, then each subclass's own in declaration order. Declare `type`
@@ -14,8 +11,6 @@ Two things here are load-bearing for the wire format:
 * **These models must stay mutable.** `gateway.outbox.Outbox.send` stamps
   `seq` and `session_id` by plain attribute assignment, so no `frozen=True`
   and no `validate_assignment=True`.
-
-Imports only pydantic, so `agent` yielding these stays persistence-free.
 """
 
 from __future__ import annotations
@@ -56,6 +51,9 @@ class ToolResult(ServerEvent):
     call_id: str
     status: Literal["ok", "error"]
     preview: str | None = None
+    # measured around the call itself, so live and replayed cards show the
+    # same figure and neither includes socket or render latency
+    duration_ms: int
 
 
 class RetrievalHit(BaseModel):
@@ -76,7 +74,33 @@ class RetrievalHits(ServerEvent):
 
     type: Literal["retrieval.hits"] = "retrieval.hits"
     turn_id: str
+    # which call these came out of; the client cannot infer it once calls
+    # overlap, and a guess cannot be persisted
+    call_id: str
     hits: list[RetrievalHit] = Field(default_factory=list)
+
+
+class TurnStats(BaseModel):
+    """What one turn cost and how long it took.
+
+    `ttft_ms` runs to the first `TextDelta`, so a turn that searched for eight
+    seconds before writing a word reports eight seconds -- what the user waits
+    on, not the model's prefill latency. `cost_usd` is None when the model is
+    not priced; see `core.pricing`.
+    """
+
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    # parts of prompt_tokens, not additions to it, each billed at its own rate
+    cached_tokens: int
+    cache_write_tokens: int
+    cost_usd: float | None
+    ttft_ms: int | None
+    duration_ms: int
+    # agent hops, and tool calls issued across all of them
+    steps: int
+    tool_calls: int
 
 
 class TurnEnd(ServerEvent):
@@ -85,15 +109,14 @@ class TurnEnd(ServerEvent):
     reason: Literal["completed", "cancelled", "error"]
     # client-facing; populated on reason="error"
     message: str | None = None
+    # one shape for this frame, the `turns` row and the UI footer. None when
+    # the turn died before run_turn could account for it.
+    stats: TurnStats | None = None
 
-    # Persistence-facing, deliberately never on the wire: gateway's
-    # _persist_turn reads them off the object instead. `error` is distinct
-    # from `message` above -- a recursion-limit hit tells the client "step
-    # limit reached" and records "recursion limit" in the DB.
-    # NB. exclude=True is not overridable: model_dump(include=...) will not
-    # bring these back. Read them as attributes.
-    prompt_tokens: int | None = Field(default=None, exclude=True)
-    completion_tokens: int | None = Field(default=None, exclude=True)
+    # Persistence-facing, never on the wire: gateway's _persist_turn reads it
+    # off the object. Distinct from `message` -- a recursion-limit hit tells
+    # the client "step limit reached" and records "recursion limit" in the DB.
+    # NB. exclude=True is not overridable by model_dump(include=...).
     error: str | None = Field(default=None, exclude=True)
 
 
@@ -105,10 +128,8 @@ class ErrorEvent(ServerEvent):
     type: Literal["error"] = "error"
     code: str
     message: str
-    # Declared last so existing frames keep their key order and merely gain a
-    # trailing "turn_id": null. Optional because gateway mints this event with
-    # no turn in flight (bad_request on a malformed frame, no_active_turn,
-    # busy); it is populated only when a turn actually failed mid-flight.
+    # Optional because gateway mints this event with no turn in flight
+    # (bad_request, no_active_turn, busy); populated only when a turn failed.
     turn_id: str | None = None
 
 
@@ -127,4 +148,5 @@ __all__ = [
     "ToolCall",
     "ToolResult",
     "TurnEnd",
+    "TurnStats",
 ]

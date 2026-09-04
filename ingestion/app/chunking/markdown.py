@@ -166,8 +166,3 @@ def _split_prose(text: str) -> list[tuple[str, int]]:
     if buf:
         parts.append(("\n\n".join(buf), line_offset))
     return parts
-
-
-# --------------------------------------------------------------------------
-# python
-# --------------------------------------------------------------------------

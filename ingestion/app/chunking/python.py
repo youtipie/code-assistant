@@ -121,6 +121,3 @@ def _chunk_function(
         symbol_kind="function",
         context_header=header,
     )
-
-
-# --------------------------------------------------------------------------

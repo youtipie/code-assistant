@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ConnectionState } from "@/transport/ChatSocket";
-import type { RetrievalHit, ServerEvent } from "@/protocol/events";
+import type { RetrievalHit, ServerEvent, TurnStats } from "@/protocol/events";
 
 
 export interface ToolInvocation {
@@ -11,8 +11,9 @@ export interface ToolInvocation {
   status: "running" | "ok" | "error";
   preview?: string;
   hits: RetrievalHit[];
-  startedAt: number;
-  endedAt?: number;
+  // measured server-side: arrival times would fold in socket and render
+  // latency, and leave a reloaded turn with no timing at all
+  durationMs?: number;
 }
 
 export interface Turn {
@@ -24,6 +25,8 @@ export interface Turn {
   error?: string;
   startedAt: number;
   endedAt?: number;
+  // measured server-side; arrives once on turn.end, so absent while streaming
+  stats?: TurnStats;
 }
 
 interface ChatState {
@@ -108,7 +111,6 @@ export const useChatStore = create<ChatState>((set) => ({
                   arguments: event.arguments,
                   status: "running",
                   hits: [],
-                  startedAt: Date.now(),
                 },
               ],
             })),
@@ -124,7 +126,7 @@ export const useChatStore = create<ChatState>((set) => ({
                       ...tool,
                       status: event.status,
                       ...(event.preview ? { preview: event.preview } : {}),
-                      endedAt: Date.now(),
+                      durationMs: event.duration_ms,
                     }
                   : tool,
               ),
@@ -133,17 +135,12 @@ export const useChatStore = create<ChatState>((set) => ({
 
         case "retrieval.hits":
           return {
-            turns: updateTurn(state.turns, event.turn_id, (turn) => {
-              const index = [...turn.tools]
-                .reverse()
-                .find((tool) => tool.status === "running")?.callId;
-              return {
-                ...turn,
-                tools: turn.tools.map((tool) =>
-                  tool.callId === index ? { ...tool, hits: event.hits } : tool,
-                ),
-              };
-            }),
+            turns: updateTurn(state.turns, event.turn_id, (turn) => ({
+              ...turn,
+              tools: turn.tools.map((tool) =>
+                tool.callId === event.call_id ? { ...tool, hits: event.hits } : tool,
+              ),
+            })),
           };
 
         case "turn.end":
@@ -152,6 +149,7 @@ export const useChatStore = create<ChatState>((set) => ({
               ...turn,
               status: event.reason,
               ...(event.message ? { error: event.message } : {}),
+              ...(event.stats ? { stats: event.stats } : {}),
               endedAt: Date.now(),
             })),
           };
