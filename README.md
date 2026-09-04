@@ -34,8 +34,9 @@ app via the INVOICE_REQUEST webhook (saleor/plugins/webhook/plugin.py:1282)…
   indexed commit
 - **PR review and issue triage** — reads a diff or an issue and answers in chat
 - **Local embeddings** — ONNX on CPU, no API calls during ingestion
-- **Retrieval eval** — 25 questions scored with `ranx`: `hit_rate@{1,3,5,10}`
-  and MRR, listing every question that fell outside the top 5
+- **Retrieval eval** — 171 questions scored with `ranx`: `hit_rate@{1,3,5,10}`
+  and MRR with a 95% interval, listing every question that fell outside the
+  top 5
 
 ## Architecture
 
@@ -119,6 +120,7 @@ docker compose run --rm ingest chunk                   # chunk and embed
 docker compose run --rm ingest chunk --force           # re-chunk everything
 docker compose run --rm ingest search "how do refunds work"
 docker compose run --rm ingest eval                    # hit_rate@k and MRR
+docker compose run --rm ingest eval --verbose          # every question, not just misses
 docker compose run --rm ingest eval --limit 20         # score deeper than the default 10
 docker compose run --rm ingest eval --questions /srv/evals/my_set.yaml
 ```
@@ -195,7 +197,7 @@ mcp_servers/
 ingestion/           clone → chunk → embed → load, plus search and eval CLIs
 web/                 React + TypeScript client
 clients/cli.py       terminal client
-evals/questions.yaml retrieval eval set
+evals/questions.yaml 171 retrieval questions with expected paths
 evals/scope_cases.yaml + scope.py   scope-gate eval set and runner
 ```
 

@@ -1,12 +1,637 @@
-# Retrieval eval set.
+# Retrieval eval set: 171 questions, each with the path or paths that answer it.
+# A question passes when any expected path appears in the top-k hits. `type`
+# filters the search the same way the agent's tools do: doc questions search
+# documentation, code questions search code, `any` searches both.
 #
-# Every expected path here was seen in real retrieval output while building
-# the app, so the answers are grounded in this corpus rather than invented. A
-# question passes when any expected path appears in the top-k hits.
+# Two provenances, deliberately mixed into one set:
 #
-# `type` filters the search the same way the agent's tools do: doc questions
-# search documentation, code questions search code, and `any` searches both.
+#   - 25 written by hand, whose expected paths were all seen in real retrieval
+#     output while building the app. Realistically phrased, and selected by the
+#     thing they score -- they catch a regression, they cannot measure what
+#     search never surfaced in the first place.
+#   - 146 drafted the opposite way round: sample a file round-robin across the
+#     corpus directories, show it to a model, ask what question that file
+#     answers, never consult retrieval. Those can contain questions search
+#     loses, and on their first run three of them did.
+#
+# Known misses are kept and annotated rather than tuned away -- the comment over
+# each says what it costs and why it is still here. A path is in `expect`
+# because someone read the file and it answers the question, never because
+# search ranked it.
 
+# --- saleor/account ----------------------------------------------------
+- q: Where is the event for assigning an email to a customer created?
+  type: code
+  expect: [saleor/account/events.py]
+- q: Where is the AddressForm model form for addresses defined?
+  type: code
+  expect: [saleor/account/i18n.py]
+- q: Which model defines user address fields and metadata?
+  type: code
+  expect: [saleor/account/models.py]
+- q: How is a user's number of orders updated in bulk?
+  type: code
+  expect: [saleor/account/utils.py]
+
+# --- saleor/account/management -----------------------------------------
+- q: How does the createsuperuser management command handle interactive user creation?
+  type: code
+  expect: [saleor/account/management/commands/createsuperuser.py]
+
+# --- saleor/checkout ---------------------------------------------------
+- q: How is the base total of a checkout calculated?
+  type: code
+  expect: [saleor/checkout/base_calculations.py]
+- q: How is the total price for a checkout line calculated with propagated discounts?
+  type: code
+  expect: [saleor/checkout/base_calculations.py]
+- q: How are order lines created from checkout lines during order completion?
+  type: code
+  expect: [saleor/checkout/complete_checkout.py]
+- q: How does a checkout become an order?
+  type: code
+  expect: [saleor/checkout/complete_checkout.py]
+- q: How is select_for_update used to lock checkout objects in the database?
+  type: code
+  expect: [saleor/checkout/lock_objects.py]
+- q: What fields does the Checkout model have?
+  type: code
+  expect: [saleor/checkout/models.py]
+- q: How is the checkout discount recalculated when applying a voucher?
+  type: code
+  expect: [saleor/checkout/utils.py]
+
+# --- saleor/checkout/search --------------------------------------------
+- q: How is the search vector for a checkout prepared?
+  type: code
+  expect: [saleor/checkout/search/indexing.py]
+- q: How is CheckoutLineData constructed from checkout lines and related data?
+  type: code
+  expect: [saleor/checkout/search/loaders.py]
+
+# --- saleor/checkout/webhooks ------------------------------------------
+- q: How are checkout lines serialized for tax calculation in the checkout process?
+  type: code
+  expect: [saleor/checkout/webhooks/calculate_taxes.py]
+- q: How are excluded shipping methods determined for a checkout using webhooks?
+  type: code
+  expect: [saleor/checkout/webhooks/exclude_shipping.py]
+- q: How are shipping methods for a checkout retrieved via webhooks?
+  type: code
+  expect: [saleor/checkout/webhooks/list_shipping_methods.py]
+
+# --- saleor/graphql/checkout -------------------------------------------
+- q: Where is the mutation for completing a checkout implemented?
+  type: code
+  expect: [saleor/graphql/checkout/mutations/checkout_complete.py]
+- q: How are order lines validated when creating a checkout from an order?
+  type: code
+  expect: [saleor/graphql/checkout/mutations/checkout_create_from_order.py]
+- q: How is a checkout's delivery method retrieved and validated by internal shipping method ID?
+  type: code
+  expect: [saleor/graphql/checkout/mutations/checkout_delivery_method_update.py]
+- q: How is checkout data resolved and permissions enforced in the checkout GraphQL resolver?
+  type: code
+  expect: [saleor/graphql/checkout/resolvers.py]
+
+# --- saleor/graphql/order ----------------------------------------------
+- q: Where is the GraphQL mutation for canceling a fulfillment defined?
+  type: code
+  expect: [saleor/graphql/order/mutations/fulfillment_cancel.py]
+- q: Which GraphQL mutation refunds fulfilled products?
+  type: code
+  expect: [saleor/graphql/order/mutations/fulfillment_refund_products.py]
+- q: Where is the base mutation for order note operations defined?
+  type: code
+  expect: [saleor/graphql/order/mutations/order_note_common.py]
+- q: How is an order note updated through a GraphQL mutation?
+  type: code
+  expect: [saleor/graphql/order/mutations/order_note_update.py]
+- q: What input type defines the shipping method update for an order mutation?
+  type: code
+  expect: [saleor/graphql/order/mutations/order_update_shipping.py]
+
+# --- saleor/graphql/payment --------------------------------------------
+- q: Where is the mutation for checking a payment balance implemented?
+  type: code
+  expect: [saleor/graphql/payment/mutations/payment/payment_check_balance.py]
+- q: How is a transaction initialized through GraphQL?
+  type: code
+  expect: [saleor/graphql/payment/mutations/transaction/transaction_initialize.py]
+- q: How is an App instance validated and retrieved from a payment gateway identifier?
+  type: code
+  expect: [saleor/graphql/payment/mutations/transaction/transaction_initialize.py]
+- q: How is a transaction process mutation performed for payments?
+  type: code
+  expect: [saleor/graphql/payment/mutations/transaction/transaction_process.py]
+- q: How is a refund requested for a granted refund on a transaction?
+  type: code
+  expect: [saleor/graphql/payment/mutations/transaction/transaction_request_refund_for_granted_refund.py]
+
+# --- saleor/order ------------------------------------------------------
+- q: How is the order_fulfilled action implemented and what does it do?
+  type: code
+  expect: [saleor/order/actions.py]
+- q: Where is a refund fulfillment created?
+  type: code
+  expect: [saleor/order/actions.py]
+- q: How are order prices calculated after applying discounts and vouchers?
+  type: code
+  expect: [saleor/order/base_calculations.py]
+- q: What error codes are defined for order-related operations?
+  type: code
+  expect: [saleor/order/error_codes.py]
+- q: Where are order events recorded?
+  type: code
+  expect: [saleor/order/events.py]
+- q: How is the payload for an order line constructed for notifications?
+  type: code
+  expect: [saleor/order/notifications.py]
+
+# --- saleor/order/webhooks ---------------------------------------------
+- q: How is the payload for excluded shipping methods in an order generated?
+  type: code
+  expect: [saleor/order/webhooks/exclude_shipping.py]
+- q: How is the payload for order tax calculation generated?
+  type: code
+  expect: [saleor/order/webhooks/order_calculate_taxes.py]
+
+# --- saleor/payment ----------------------------------------------------
+- q: What is TokenizedPaymentFlow?
+  type: code
+  expect: [saleor/payment/__init__.py]
+- q: How are payments loaded in batches by order ID?
+  type: code
+  expect: [saleor/payment/dataloaders.py]
+- q: What dataclasses describe payment method tokenization requests?
+  type: code
+  expect: [saleor/payment/interface.py]
+- q: What is the difference between Payment and TransactionItem?
+  type: code
+  expect: [saleor/payment/models.py]
+- q: What model stores individual payment transaction items and their details?
+  type: code
+  expect: [saleor/payment/models.py]
+- q: How are transactions eligible for automatic fund release identified?
+  type: code
+  expect: [saleor/payment/tasks.py]
+- q: How is payment information constructed for processing a payment?
+  type: code
+  expect: [saleor/payment/utils.py]
+
+# --- saleor/payment/gateways -------------------------------------------
+- q: How does the Stripe payment gateway process a payment?
+  type: code
+  expect: [saleor/payment/gateways/stripe/plugin.py]
+- q: How are payment method details extracted from a Stripe payment intent?
+  type: code
+  expect: [saleor/payment/gateways/stripe/stripe_api.py]
+- q: How are incoming Stripe webhooks handled and verified?
+  type: code
+  expect: [saleor/payment/gateways/stripe/webhooks.py]
+- q: Where are Stripe webhook events handled in the code?
+  type: code
+  expect: [saleor/payment/gateways/stripe/webhooks.py]
+- q: How are supported currencies determined for a payment gateway configuration?
+  type: code
+  expect: [saleor/payment/gateways/utils.py]
+
+# --- saleor/plugins ----------------------------------------------------
+- q: Where is the AppConfig for the plugins system defined?
+  type: code
+  expect: [saleor/plugins/apps.py]
+- q: How is the default email plugin configuration validated for correctness?
+  type: code
+  expect: [saleor/plugins/email_common.py]
+- q: How is the string representation of PluginConfiguration defined?
+  type: code
+  expect: [saleor/plugins/models.py]
+- q: Where is the global plugin webhook handler implemented?
+  type: code
+  expect: [saleor/plugins/views.py]
+
+# --- saleor/plugins/admin_email ----------------------------------------
+- q: Where is the email notification sent for failed CSV exports?
+  type: code
+  expect: [saleor/plugins/admin_email/notify_events.py]
+- q: What plugin handles sending staff-related admin emails?
+  type: code
+  expect: [saleor/plugins/admin_email/plugin.py]
+- q: Where is the task for sending an email with a download link implemented?
+  type: code
+  expect: [saleor/plugins/admin_email/tasks.py]
+
+# --- saleor/plugins/avatax ---------------------------------------------
+- q: How is request data generated for Avatax API transactions?
+  type: code
+  expect: [saleor/plugins/avatax/__init__.py]
+- q: Where is the deprecated Avalara tax plugin implemented?
+  type: code
+  expect: [saleor/plugins/avatax/plugin.py]
+- q: How does the Avatax integration send order data asynchronously?
+  type: code
+  expect: [saleor/plugins/avatax/tasks.py]
+
+# --- saleor/plugins/openid_connect -------------------------------------
+# Second path added by hand after reading both files: plugin.py carries
+# CONFIG_STRUCTURE -- every option with its label and help text -- so it answers
+# this at least as well as the dataclass of field names does.
+- q: What configuration options are available for OpenID Connect integration?
+  type: code
+  expect:
+    - saleor/plugins/openid_connect/dataclasses.py
+    - saleor/plugins/openid_connect/plugin.py
+- q: What exception is raised for authentication errors in OpenID Connect integration?
+  type: code
+  expect: [saleor/plugins/openid_connect/exceptions.py]
+- q: How does the OpenIDConnectPlugin obtain external access tokens using authorization flow?
+  type: code
+  expect: [saleor/plugins/openid_connect/plugin.py]
+- q: How is a user retrieved from an OpenID Connect OAuth access token?
+  type: code
+  expect: [saleor/plugins/openid_connect/utils.py]
+
+# --- saleor/plugins/user_email -----------------------------------------
+- q: Where is the account change email confirmation notification sent?
+  type: code
+  expect: [saleor/plugins/user_email/notify_events.py]
+- q: How is plugin configuration saved and email templates updated for the user email plugin?
+  type: code
+  expect: [saleor/plugins/user_email/plugin.py]
+- q: Where is the task for sending order confirmation emails implemented?
+  type: code
+  expect: [saleor/plugins/user_email/tasks.py]
+
+# --- saleor/plugins/webhook --------------------------------------------
+- q: Where is the pytest fixture for initializing the webhook plugin defined?
+  type: code
+  expect: [saleor/plugins/webhook/conftest.py]
+- q: How is a stored payment method delete request handled via webhooks?
+  type: code
+  expect: [saleor/plugins/webhook/plugin.py]
+- q: How is invoice generation requested from an external app?
+  type: code
+  expect: [saleor/plugins/webhook/plugin.py]
+- q: Which service is responsible for invoice generation?
+  type: code
+  expect:
+    - saleor/plugins/webhook/plugin.py
+    - saleor/webhook/payloads.py
+
+# --- saleor/webhook ----------------------------------------------------
+# Known miss, and the useful kind. WebhookEventAsyncType is 847 lines of
+# constants with no methods, so _chunk_class takes the whole class body as one
+# header chunk and truncates it at MAX_CHARS: 1.6k of this file's 38k
+# characters are indexed and the rest of the event names are not searchable at
+# all. (ingestion/app/chunking/python.py)
+- q: Where are asynchronous webhook event type constants defined?
+  type: code
+  expect: [saleor/webhook/event_types.py]
+- q: How does the PayloadSerializer serialize a queryset with custom options?
+  type: code
+  expect: [saleor/webhook/payload_serializers.py]
+- q: How are product variant attributes serialized for webhooks?
+  type: code
+  expect: [saleor/webhook/serializers.py]
+- q: How are custom webhook headers validated for allowed keys and values?
+  type: code
+  expect: [saleor/webhook/validators.py]
+
+# --- saleor/webhook/circuit_breaker ------------------------------------
+- q: How does the circuit breaker determine if the error threshold is exceeded?
+  type: code
+  expect: [saleor/webhook/circuit_breaker/breaker_board.py]
+- q: How does RedisStorage register and store webhook circuit breaker events?
+  type: code
+  expect: [saleor/webhook/circuit_breaker/storage.py]
+
+# --- saleor/webhook/observability --------------------------------------
+- q: What is the TruncationError exception used for in webhook observability?
+  type: code
+  expect: [saleor/webhook/observability/exceptions.py]
+- q: How does the system detect sensitive fields in a GraphQL query AST?
+  type: code
+  expect: [saleor/webhook/observability/obfuscation.py]
+- q: How is the payload for an event delivery attempt generated for observability?
+  type: code
+  expect: [saleor/webhook/observability/payloads.py]
+- q: Which headers and GraphQL fields are considered sensitive for observability obfuscation?
+  type: code
+  expect: [saleor/webhook/observability/sensitive_data.py]
+
+# --- saleor/webhook/response_schemas -----------------------------------
+- q: How is the shipping method ID validated and cleaned in webhook response schemas?
+  type: code
+  expect: [saleor/webhook/response_schemas/shipping.py]
+- q: What fields and validation logic are defined in the TransactionBaseSchema for webhook transaction responses?
+  type: code
+  expect: [saleor/webhook/response_schemas/transaction.py]
+- q: How does the code handle skipping invalid values during webhook response validation?
+  type: code
+  expect: [saleor/webhook/response_schemas/utils/annotations.py]
+
+# --- saleor/webhook/transport ------------------------------------------
+- q: How is a signature generated for a webhook payload?
+  type: code
+  expect: [saleor/webhook/transport/__init__.py]
+- q: How is a payment action response parsed into a GatewayResponse object?
+  type: code
+  expect: [saleor/webhook/transport/payment.py]
+- q: How is a delivery object created for a synchronous subscription webhook event?
+  type: code
+  expect: [saleor/webhook/transport/synchronous/transport.py]
+- q: What happens when a webhook delivery fails?
+  type: code
+  expect: [saleor/webhook/transport/utils.py]
+
+# --- docs/api-usage ----------------------------------------------------
+- q: How are validation errors returned in accountRegister GraphQL mutations?
+  type: doc
+  expect: [docs/api-usage/error-handling.mdx]
+- q: How do I update or delete metadata for a product using GraphQL mutations?
+  type: doc
+  expect: [docs/api-usage/metadata.mdx]
+- q: How are slugs generated for product names with special characters?
+  type: doc
+  expect: [docs/api-usage/slug-fields.mdx]
+- q: How do we handle rate limiting on the GraphQL API?
+  type: doc
+  expect: [docs/api-usage/usage-limits.mdx]
+
+# --- docs/cloud --------------------------------------------------------
+- q: What are the key differences between sandbox and production environments?
+  type: doc
+  expect: [docs/cloud/environment.mdx]
+- q: How can I create a proxy API route to protect API credentials using Basic Auth?
+  type: doc
+  expect: [docs/cloud/restricting-api-access.mdx]
+- q: How does the platform ensure users retain ownership of their data?
+  type: doc
+  expect: [docs/cloud/saas-self-host.mdx]
+
+# --- docs/demos --------------------------------------------------------
+# Known miss twice over. The page is a heading, one sentence and a YouTube
+# embed -- the same nothing-to-embed shape as questions.yaml's deployment
+# architecture case -- and the lexical half does not rescue it: searching `n8n`
+# alone returns this file first, but inside the whole question its lexical
+# branch returns nothing, because ts_rank scores term frequency and not rarity.
+# One decisive rare token is outvoted by "automate", "workflows", "using".
+- q: How can I automate workflows using n8n, Slack, and AI?
+  type: doc
+  expect: [docs/demos/saleor-n8n.mdx]
+- q: How are similar products recommended using OpenAI embeddings?
+  type: doc
+  expect: [docs/demos/similar-products.mdx]
+
+# --- docs/developer ----------------------------------------------------
+- q: How is the final order price calculated, including discounts and taxes?
+  type: doc
+  expect: [docs/developer/price-calculation.mdx]
+- q: How do I assign a tax class to a product, product type, or shipping method?
+  type: doc
+  expect: [docs/developer/taxes.mdx]
+- q: How do I query a category background image thumbnail in a specific size and format?
+  type: doc
+  expect: [docs/developer/thumbnails.mdx]
+
+# --- docs/developer/app-store ------------------------------------------
+- q: How do I resolve duplicated chargedAmount issues with Adyen payments?
+  type: doc
+  expect: [docs/developer/app-store/apps/adyen/overview.mdx]
+- q: What are the assumptions and limitations of the app store anonymizer app?
+  type: doc
+  expect: [docs/developer/app-store/apps/anonymizer.mdx]
+- q: How do I set up and run the AvaTax app locally?
+  type: doc
+  expect: [docs/developer/app-store/apps/avatax/development.mdx]
+- q: How does the Stripe app handle refund webhooks?
+  type: doc
+  expect:
+    - docs/developer/app-store/apps/stripe/webhooks.mdx
+    - docs/developer/app-store/apps/stripe/architecture.mdx
+
+# --- docs/developer/attributes -----------------------------------------
+- q: What attribute input types are available and what are their uses?
+  type: doc
+  expect: [docs/developer/attributes/api.mdx]
+- q: What happens when an attribute is deleted and what precautions should be taken?
+  type: doc
+  expect: [docs/developer/attributes/lifecycle.mdx]
+- q: What is the difference between attributes and metadata?
+  type: doc
+  expect: [docs/developer/attributes/overview.mdx]
+
+# --- docs/developer/bulks ----------------------------------------------
+- q: How do I use the attributeBulkCreate mutation to create multiple attributes?
+  type: doc
+  expect: [docs/developer/bulks/bulk-attributes.mdx]
+- q: How can I perform a bulk order creation using GraphQL?
+  type: doc
+  expect: [docs/developer/bulks/bulk-orders.mdx]
+- q: What is the purpose of error policies in bulk mutations?
+  type: doc
+  expect: [docs/developer/bulks/error-policy.mdx]
+
+# --- docs/developer/channels -------------------------------------------
+- q: How should channels be configured for multiple international markets?
+  type: doc
+  expect: [docs/developer/channels/configuration.mdx]
+- q: What entities can be customized per channel and how?
+  type: doc
+  expect: [docs/developer/channels/overview.mdx]
+- q: Why is a channel missing from order or product pages?
+  type: doc
+  expect: [docs/developer/channels/troubleshooting.mdx]
+
+# --- docs/developer/checkout -------------------------------------------
+- q: How do I create a checkout with the API?
+  type: doc
+  expect: [docs/developer/checkout/api-guide.mdx]
+- q: How do I update the shipping and billing address in a checkout session using the API?
+  type: doc
+  expect: [docs/developer/checkout/api-guide.mdx]
+- q: How can I create an order from a checkout without processing payments?
+  type: doc
+  expect: [docs/developer/checkout/cookbook.mdx]
+- q: How can I release funds for abandoned checkouts?
+  type: doc
+  expect: [docs/developer/checkout/lifecycle.mdx]
+- q: What is the checkout lifecycle?
+  type: doc
+  expect: [docs/developer/checkout/lifecycle.mdx]
+
+# --- docs/developer/community ------------------------------------------
+# Known miss with nothing wrong with either the question or the file: the
+# pages that outrank it are about reporting problems with apps, and no signal
+# in the index separates "report a problem" from "open a feature request".
+- q: What is the process for submitting a feature request issue?
+  type: doc
+  expect: [docs/developer/community/contributing.mdx]
+- q: How can I check the payment gateway response for a failed payment?
+  type: doc
+  expect: [docs/developer/community/faq.mdx]
+- q: How do I safely add a new field to a Django model without downtime?
+  type: doc
+  expect: [docs/developer/community/zero-downtime-migrations.mdx]
+
+# --- docs/developer/discounts ------------------------------------------
+- q: How are vouchers and promotions combined during checkout?
+  type: doc
+  expect: [docs/developer/discounts/apply-vouchers.mdx]
+- q: How can I implement EU Omnibus directive price tracking using a custom app?
+  type: doc
+  expect: [docs/developer/discounts/displaying-catalogue-discounts.mdx]
+- q: What is the difference between vouchers and gift cards?
+  type: doc
+  expect: [docs/developer/discounts/overview.mdx]
+
+# --- docs/developer/export ---------------------------------------------
+- q: How can I export unused gift cards and what options are available?
+  type: doc
+  expect: [docs/developer/export/export-gift-cards.mdx]
+- q: What is the structure of exported product files?
+  type: doc
+  expect: [docs/developer/export/export-products.mdx]
+- q: How can I export voucher codes by specifying their IDs?
+  type: doc
+  expect: [docs/developer/export/export-voucher-codes.mdx]
+
+# --- docs/developer/extending ------------------------------------------
+- q: How do I build a payment app?
+  type: doc
+  expect: [docs/developer/extending/apps/building-payment-app.mdx]
+- q: How do I protect a Next.js app view using the app SDK's withAuthorization?
+  type: doc
+  expect: [docs/developer/extending/apps/developing-apps/app-sdk/protected-views.mdx]
+- q: How do circuit breakers for synchronous webhooks work?
+  type: doc
+  expect: [docs/developer/extending/webhooks/synchronous-events/circuit-breakers.mdx]
+
+# --- docs/developer/order ----------------------------------------------
+- q: How can I save customer addresses when creating or updating draft orders?
+  type: doc
+  expect: [docs/developer/order/address.mdx]
+- q: How do I configure order expiration and deletion times?
+  type: doc
+  expect: [docs/developer/order/order-expiration.mdx]
+- q: How are refunds handled after order fulfillment, and which mutations should be used?
+  type: doc
+  expect: [docs/developer/order/order-fulfillment.mdx]
+
+# --- docs/developer/payments -------------------------------------------
+- q: Where can I find an overview of existing payment integrations?
+  type: doc
+  expect: [docs/developer/payments/overview.mdx]
+- q: How do I use the paymentGatewayInitialize mutation to initialize payment gateways?
+  type: doc
+  expect: [docs/developer/payments/payment-apps.mdx]
+- q: How does a payment app process a payment?
+  type: doc
+  expect: [docs/developer/payments/payment-apps.mdx]
+- q: How are refunds granted and processed?
+  type: doc
+  expect: [docs/developer/payments/refunds.mdx]
+- q: What is the TransactionFlowStrategyEnum and how does it affect payment apps?
+  type: doc
+  expect: [docs/developer/payments/transaction-flow-strategy.mdx]
+- q: What is the difference between authorization and charge flow strategy?
+  type: doc
+  expect: [docs/developer/payments/transaction-flow-strategy.mdx]
+
+# --- docs/developer/products -------------------------------------------
+- q: How can I synchronize external stock levels with product variants?
+  type: doc
+  expect: [docs/developer/products/cookbook.mdx]
+- q: Can a product's type be changed after creation?
+  type: doc
+  expect: [docs/developer/products/lifecycle.mdx]
+- q: How do I troubleshoot when a product can't be added to an order?
+  type: doc
+  expect: [docs/developer/products/troubleshooting.mdx]
+
+# --- docs/developer/running-saleor -------------------------------------
+- q: How do I compile and use custom email templates?
+  type: doc
+  expect: [docs/developer/running-saleor/emails.mdx]
+- q: How do I set memory limits for the process using environment variables?
+  type: doc
+  expect: [docs/developer/running-saleor/memory-limits.mdx]
+- q: Which periodic tasks are scheduled to run at specific times?
+  type: doc
+  expect: [docs/developer/running-saleor/task-queue.mdx]
+- q: Which task queue and broker does Saleor use?
+  type: doc
+  expect: [docs/developer/running-saleor/task-queue.mdx]
+
+# --- docs/developer/shipping -------------------------------------------
+- q: How do I create a weight-based shipping method and set weight units?
+  type: doc
+  expect: [docs/developer/shipping/shipping-method.mdx]
+- q: How are shipping methods filtered using webhooks during checkout and order editing?
+  type: doc
+  expect: [docs/developer/shipping/shipping-methods-in-orders.mdx]
+- q: How do I assign a warehouse to a shipping zone using the API?
+  type: doc
+  expect: [docs/developer/shipping/shipping-zone.mdx]
+
+# --- docs/developer/stock ----------------------------------------------
+- q: What are the key concepts and relationships in stock allocation?
+  type: doc
+  expect: [docs/developer/stock/stock-allocation.mdx]
+- q: How does the stock reservation mechanism work for checkouts?
+  type: doc
+  expect: [docs/developer/stock/stock-reservation.mdx]
+- q: How does inventory tracking work for product variants?
+  type: doc
+  expect: [docs/developer/stock/stock-tracking.mdx]
+
+# --- docs/developer/users ----------------------------------------------
+- q: How can staff users manage customer accounts and data?
+  type: doc
+  expect: [docs/developer/users/customer-management.mdx]
+- q: How are staff permissions and groups managed for users?
+  type: doc
+  expect: [docs/developer/users/overview.mdx]
+- q: How does the staff user password reset flow work?
+  type: doc
+  expect: [docs/developer/users/staff-users.mdx]
+
+# --- docs/overview/why-saleor ------------------------------------------
+- q: How does the product type system support extensibility and custom data modeling?
+  type: doc
+  expect: [docs/overview/why-saleor/extensibility.mdx]
+- q: How does localization and currency support work for multiple channels?
+  type: doc
+  expect: [docs/overview/why-saleor/multi-market.mdx]
+- q: What does it mean for software to use an OSI-approved open source license?
+  type: doc
+  expect: [docs/overview/why-saleor/open-source.mdx]
+- q: How does Saleor scale horizontally?
+  type: doc
+  expect: [docs/overview/why-saleor/scalable.mdx]
+
+# --- docs/quickstart ---------------------------------------------------
+- q: How do I query products using the GraphQL API playground?
+  type: doc
+  expect: [docs/quickstart/api.mdx]
+- q: What are the next steps after setting up cloud deployment?
+  type: doc
+  expect: [docs/quickstart/cloud.mdx]
+- q: How do I run the application locally using Docker?
+  type: doc
+  expect: [docs/quickstart/running-locally.mdx]
+
+# --- docs/recipes ------------------------------------------------------
+- q: How can I filter available shipping methods using webhooks in an app?
+  type: doc
+  expect: [docs/recipes/custom-shipping.mdx]
+
+# --- docs/security -----------------------------------------------------
+- q: How does IP address filtering protect against SSRF attacks and how is it configured?
+  type: doc
+  expect: [docs/security/index.mdx]
+
+# --- docs/setup --------------------------------------------------------
 # Known miss. This file is 58 lines and mostly a mermaid diagram -- there are
 # roughly two sentences of prose to embed, and it contains the word "deploy"
 # zero times. The competing hits are real architecture docs. Fixing this needs
@@ -15,103 +640,22 @@
 - q: What is the deployment architecture?
   type: doc
   expect: [docs/setup/architecture.mdx]
-
-- q: How do we handle rate limiting on the GraphQL API?
+- q: How can I test database read replicas locally using a read-only user?
   type: doc
-  expect: [docs/api-usage/usage-limits.mdx]
-
-- q: How does a payment app process a payment?
+  expect: [docs/setup/read-replicas.mdx]
+- q: What data is collected by the usage telemetry feature?
   type: doc
-  expect: [docs/developer/payments/payment-apps.mdx]
+  expect: [docs/setup/usage-telemetry.mdx]
 
-- q: How are refunds granted and processed?
+# --- docs/upgrade-guides -----------------------------------------------
+- q: What are the guidelines for writing an upgrade guide?
   type: doc
-  expect: [docs/developer/payments/refunds.mdx]
+  expect: [docs/upgrade-guides/GUIDELINES.mdx]
 
-- q: What is the checkout lifecycle?
+# --- docs/upgrade-guides/core ------------------------------------------
+- q: What is the purpose of the customerIpAddress field in payment transaction webhooks?
   type: doc
-  expect: [docs/developer/checkout/lifecycle.mdx]
-
-- q: Which task queue and broker does Saleor use?
+  expect: [docs/upgrade-guides/core/3-15-to-3-16.mdx]
+- q: How do I migrate the account confirmation flow to require a password?
   type: doc
-  expect: [docs/developer/running-saleor/task-queue.mdx]
-
-- q: How does the Stripe app handle refund webhooks?
-  type: doc
-  expect:
-    - docs/developer/app-store/apps/stripe/webhooks.mdx
-    - docs/developer/app-store/apps/stripe/architecture.mdx
-
-- q: How does Saleor scale horizontally?
-  type: doc
-  expect: [docs/overview/why-saleor/scalable.mdx]
-
-- q: How do I create a checkout with the API?
-  type: doc
-  expect: [docs/developer/checkout/api-guide.mdx]
-
-- q: How do I build a payment app?
-  type: doc
-  expect: [docs/developer/extending/apps/building-payment-app.mdx]
-
-- q: What is the difference between authorization and charge flow strategy?
-  type: doc
-  expect: [docs/developer/payments/transaction-flow-strategy.mdx]
-
-- q: How does a checkout become an order?
-  type: code
-  expect: [saleor/checkout/complete_checkout.py]
-
-- q: What fields does the Checkout model have?
-  type: code
-  expect: [saleor/checkout/models.py]
-
-- q: What is the difference between Payment and TransactionItem?
-  type: code
-  expect: [saleor/payment/models.py]
-
-- q: Where is a refund fulfillment created?
-  type: code
-  expect: [saleor/order/actions.py]
-
-- q: Which service is responsible for invoice generation?
-  type: code
-  expect:
-    - saleor/plugins/webhook/plugin.py
-    - saleor/webhook/payloads.py
-
-- q: What happens when a webhook delivery fails?
-  type: code
-  expect: [saleor/webhook/transport/utils.py]
-
-- q: How is the base total of a checkout calculated?
-  type: code
-  expect: [saleor/checkout/base_calculations.py]
-
-- q: Where are Stripe webhook events handled in the code?
-  type: code
-  expect: [saleor/payment/gateways/stripe/webhooks.py]
-
-- q: Where are order events recorded?
-  type: code
-  expect: [saleor/order/events.py]
-
-- q: Which GraphQL mutation refunds fulfilled products?
-  type: code
-  expect: [saleor/graphql/order/mutations/fulfillment_refund_products.py]
-
-- q: How is a transaction initialized through GraphQL?
-  type: code
-  expect: [saleor/graphql/payment/mutations/transaction/transaction_initialize.py]
-
-- q: What is TokenizedPaymentFlow?
-  type: code
-  expect: [saleor/payment/__init__.py]
-
-- q: What dataclasses describe payment method tokenization requests?
-  type: code
-  expect: [saleor/payment/interface.py]
-
-- q: How is invoice generation requested from an external app?
-  type: code
-  expect: [saleor/plugins/webhook/plugin.py]
+  expect: [docs/upgrade-guides/core/migrate-account-merging.mdx]

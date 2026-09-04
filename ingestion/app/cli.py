@@ -119,8 +119,11 @@ async def evaluate(
         None, help="Question set (default evals/questions.yaml)."
     ),
     limit: int = typer.Option(10, "--limit", "-k", help="Depth to retrieve."),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Print every question, not just the misses."
+    ),
 ) -> None:
-    report(await run_eval(questions, limit=limit, verbose=True))
+    report(await run_eval(questions, limit=limit, verbose=verbose))
 
 
 def main() -> None:
